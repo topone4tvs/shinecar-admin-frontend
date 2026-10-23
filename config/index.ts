@@ -1,8 +1,23 @@
 import path from 'path'
+import { execSync } from 'child_process'
 import { defineConfig, type UserConfigExport } from '@tarojs/cli'
 import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin'
 import devConfig from './dev'
 import prodConfig from './prod'
+
+/** 构建戳：换算目录 / 换分支后，用来在「我的」页确认跑的是哪份产物 */
+function buildStamp(): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const d = new Date()
+  const time = `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  let sha = 'nogit'
+  try {
+    sha = execSync('git rev-parse --short HEAD', { cwd: __dirname }).toString().trim()
+  } catch {
+    // 非 git 环境（如 CI 打包产物）忽略
+  }
+  return `${time} · ${sha}`
+}
 
 // https://taro-docs.jd.com/docs/next/config#defineconfig-辅助函数
 export default defineConfig<'webpack5'>(async (merge, { command, mode }) => {
@@ -21,7 +36,9 @@ export default defineConfig<'webpack5'>(async (merge, { command, mode }) => {
     plugins: [],
     defineConstants: {
       // 管理端只有 development / pre / production 三套环境
-      __APP_ENV__: JSON.stringify(process.env.TARO_APP_ENV || process.env.NODE_ENV || 'development')
+      __APP_ENV__: JSON.stringify(process.env.TARO_APP_ENV || process.env.NODE_ENV || 'development'),
+      // 构建戳（时间 · commit），用于确认开发者工具里跑的是哪份产物
+      __BUILD_STAMP__: JSON.stringify(buildStamp())
     },
     copy: {
       patterns: [],

@@ -63,6 +63,7 @@
     <view class="login__foot">
       仅限已开通权限的门店员工与加盟商管理员
       <text class="login__foot-line">账号问题请联系总部运营</text>
+      <text class="login__stamp">构建 {{ buildStamp }}</text>
     </view>
 
     <!-- 演示模式提示：仅 mock 开启时出现，后端就绪后自动消失 -->
@@ -104,6 +105,7 @@ const authCode = ref('')
 
 const mockOn = isMockEnabled()
 const accounts = mockOn ? mockAccounts() : []
+const buildStamp = __BUILD_STAMP__
 
 const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1800 })
 
@@ -241,6 +243,15 @@ const fill = (nextPhone: string, nextCode: string) => {
   &__foot-line {
     display: block;
     color: $ink-4;
+  }
+
+  // 构建戳：用来确认开发者工具里跑的是哪份产物，不可点、不抢视觉
+  &__stamp {
+    display: block;
+    margin-top: 8rpx;
+    font-size: $fs-caption;
+    color: $ink-4;
+    opacity: 0.7;
   }
 }
 

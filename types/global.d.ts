@@ -14,6 +14,9 @@ declare module '*.styl';
 /** 构建期注入的环境标识，见 config/index.ts 的 defineConstants */
 declare const __APP_ENV__: 'development' | 'pre' | 'production';
 
+/** 构建期注入的构建戳：`MM-DD HH:mm · shortSha`，见 config/index.ts */
+declare const __BUILD_STAMP__: string;
+
 declare namespace NodeJS {
   interface ProcessEnv {
     /** NODE 内置环境变量, 会影响到最终构建生成产物 */

@@ -42,7 +42,7 @@
 
     <view class="me__foot">
       默认门店设置 · 操作日志 · 团队与权限在后续版本开放
-      <text class="me__version">v0.1.0 · 管理端</text>
+      <text class="me__version">v0.1.0 · 管理端 · 构建 {{ buildStamp }}</text>
     </view>
   </view>
 </template>
@@ -59,6 +59,7 @@ import { maskPhone } from '@/utils/format'
 
 const auth = useAuthStore()
 const mockOn = ref(isMockEnabled())
+const buildStamp = __BUILD_STAMP__
 
 const profile = computed(() => auth.profile)
 const initial = computed(() => (profile.value?.name || '管').slice(0, 1))
