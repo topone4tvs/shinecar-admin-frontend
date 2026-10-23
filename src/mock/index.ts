@@ -7,10 +7,12 @@ import type {
   OrderItem,
   ReviewItem,
   Shop,
+  ShopOverview,
   Station,
+  StationDetail,
   UserDetail,
 } from '@/types/api'
-import { ADMINS, CAPABILITIES, USERS, runtime, type MockAdmin } from './data'
+import { ADMINS, CAPABILITIES, SHOPS, STATION_USERS, USERS, runtime, type MockAdmin } from './data'
 
 /**
  * 内置 mock 分发层。
@@ -170,12 +172,31 @@ const routes: Route[] = [
   {
     method: 'GET',
     pattern: /^\/shops\/(\d+)\/stations$/,
-    handler: ({ params }): Station[] => {
+    handler: ({ params }): ShopOverview => {
       requireAdmin()
       const shopId = Number(params[0])
-      return runtime.stations
+      const shop = SHOPS.find(s => s.id === shopId)
+      if (!shop) throw new ApiError(40403, '门店不存在')
+      const stations = runtime.stations
         .filter(s => s.shop_id === shopId)
         .sort((a, b) => a.id - b.id)
+      const summary = stations.reduce(
+        (acc, s) => {
+          if (s.status === 'busy') acc.busy += 1
+          else if (s.status === 'idle') acc.idle += 1
+          else if (s.status === 'repair') acc.repairing += 1
+          return acc
+        },
+        { busy: 0, idle: 0, repairing: 0 },
+      )
+      const now = new Date()
+      const p = (n: number) => String(n).padStart(2, '0')
+      return {
+        shop,
+        summary,
+        stations,
+        refreshed_at: `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())} ${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`,
+      }
     },
   },
   {
@@ -189,11 +210,31 @@ const routes: Route[] = [
   {
     method: 'GET',
     pattern: /^\/stations\/(\d+)$/,
-    handler: ({ params }): Station => {
+    handler: ({ params }): StationDetail => {
       requireAdmin()
       const station = runtime.stations.find(s => s.id === Number(params[0]))
       if (!station) throw new ApiError(40404, '工位不存在')
-      return station
+
+      // 设备类能力只取 placement=station 的项；门店工具（停车）不出现在工位详情
+      const capabilities = (CAPABILITIES[station.shop_id] || []).filter(
+        c => c.enabled && (c.placement ?? 'station') === 'station',
+      )
+
+      let order: StationDetail['order'] = null
+      if (station.status === 'busy' && station.order_id && station.started_at) {
+        const source = runtime.orders.find(o => o.id === station.order_id)
+        const user = STATION_USERS[station.id]
+        if (source && user) {
+          order = {
+            id: source.id,
+            order_no: source.order_no,
+            started_at: station.started_at,
+            user,
+          }
+        }
+      }
+
+      return { ...station, capabilities, order }
     },
   },
   {
@@ -203,9 +244,12 @@ const routes: Route[] = [
       const admin = requireAdmin()
       const station = runtime.stations.find(s => s.id === Number(params[0]))
       if (!station) throw new ApiError(40404, '工位不存在')
-      if (station.status === 'busy') throw new ApiError(40901, '工位正在使用中，无法设置维护')
-      const enable = Boolean(data?.enable)
-      station.status = enable ? 'repair' : 'idle'
+      // action 优先；兼容早期 enable 写法，避免前端漏改一处就静默失效
+      const enable = data?.action ? data.action === 'set' : Boolean(data?.enable)
+      if (enable && station.status === 'busy') {
+        throw new ApiError(40901, '工位正在使用中，无法设置维护')
+      }
+      station.status = enable ? 'repair' : station.order_id ? 'busy' : 'idle'
       if (enable) {
         station.maintenance_at = clockText(new Date())
         station.maintenance_by = admin.name
@@ -223,13 +267,91 @@ const routes: Route[] = [
       requireAdmin()
       const station = runtime.stations.find(s => s.id === Number(params[0]))
       if (!station) throw new ApiError(40404, '工位不存在')
-      const command = String(data?.command || '')
-      if (!['towel', 'fan'].includes(command)) throw new ApiError(40010, '不支持的设备命令')
-      return {
-        accepted: true,
-        command,
-        message: command === 'towel' ? '取巾命令已下发' : '通风命令已下发',
+      const key = String(data?.key || data?.command || '')
+      const messages: Record<string, string> = {
+        open_gate: '已发送开门指令',
+        voice: '语音播报已下发',
+        ventilation: '已开启通风，5 分钟后自动关闭',
+        towel_cabinet: '毛巾柜命令已下发',
       }
+      const message = messages[key]
+      if (!message) throw new ApiError(40010, `能力不存在：${key}`)
+      // 设备离线：按文档「不假装成功」，返回未下发
+      if (station.status === 'off') {
+        return { accepted: false, key, message: '设备离线，指令未下发' }
+      }
+      return { accepted: true, key, message }
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/orders\/(\d+)\/finish$/,
+    handler: ({ params }) => {
+      requireAdmin()
+      const orderId = Number(params[0])
+      const station = runtime.stations.find(s => s.order_id === orderId)
+      if (!station) throw new ApiError(40408, '当前工位没有进行中的订单')
+      const order = runtime.orders.find(o => o.id === orderId)
+      if (!order) throw new ApiError(40405, '订单不存在')
+      order.status = 'done'
+      order.ended_at = new Date().toISOString()
+      station.status = 'idle'
+      delete station.order_id
+      delete station.started_at
+      delete station.plate_tail
+      return { order_id: orderId, station_id: station.id, status: 'done' }
+    },
+  },
+
+  // ---------------- 停车代缴 ----------------
+  {
+    method: 'GET',
+    pattern: /^\/parking\/records$/,
+    handler: ({ data }) => {
+      requireAdmin()
+      const shopId = Number(data?.shop_id || 0)
+      const list = runtime.parking
+        .filter(r => !shopId || r.shop_id === shopId)
+        .sort((a, b) => (a.paid_at < b.paid_at ? 1 : -1))
+        .slice(0, 10)
+      return { list }
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/parking\/pay$/,
+    handler: ({ data }) => {
+      const admin = requireAdmin()
+      const raw = String(data?.plate_no || '')
+        .replace(/[·\s\-]/g, '')
+        .toUpperCase()
+        .slice(0, 8)
+      if (!raw) throw new ApiError(40020, '请先录入车牌')
+      // 展示与存储统一用「沪A·D2311」格式，避免记录列表与录入形态不一致
+      const plate = raw.length > 2 ? `${raw.slice(0, 2)}·${raw.slice(2)}` : raw
+      const paid = runtime.parking.find(r => r.plate_no === plate)
+      // 10 分钟内同车牌重复提交：需要 confirm_again=1 才放行
+      const recent =
+        runtime.lastParking.plate === plate && Date.now() - runtime.lastParking.at < 10 * 60 * 1000
+      if (recent && !data?.confirm_again) {
+        throw new ApiError(40902, '该车牌 10 分钟内已提交过一次，请确认后再缴')
+      }
+      const now = new Date()
+      const p = (n: number) => String(n).padStart(2, '0')
+      const stamp = `${p(now.getMonth() + 1)}-${p(now.getDate())} ${p(now.getHours())}:${p(now.getMinutes())}`
+      runtime.lastParking = { plate, at: Date.now() }
+      runtime.parking.unshift({
+        id: Date.now(),
+        shop_id: Number(data?.shop_id || admin.shop_ids[0]),
+        plate_no: plate,
+        paid_at: stamp,
+        operator: admin.name,
+      })
+      if (paid) {
+        // 已缴过的车牌：仍然返回成功，但带上提示让现场知道是重复操作
+        return { accepted: true, plate_no: plate, message: '代缴成功，已放行（该车牌此前已代缴过）' }
+      }
+      return { accepted: true, plate_no: plate, message: '代缴成功，已放行' }
     },
   },
 

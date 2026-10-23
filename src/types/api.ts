@@ -51,6 +51,56 @@ export interface Capability {
   /** 两字以内字符图标，避免引入图标资源 */
   icon: string
   enabled: boolean
+  /**
+   * 作用域：shop = 门店工具（现场页「门店工具」区），station = 工位设备（工位详情「扩展设备」区）。
+   * 由后端 admin_capabilities.placement 下发，前端只按此字段分区渲染。
+   */
+  placement?: 'shop' | 'station'
+  /** 点击后需要的交互：直接下发 / 二次确认 / 弹层输入。缺省视为直接下发 */
+  confirm?: 'none' | 'confirm' | 'sheet'
+}
+
+/** 门店概览：现场页首屏一次拿全，避免 3 个请求串行 */
+export interface ShopOverview {
+  shop: Shop
+  summary: { busy: number; idle: number; repairing: number }
+  stations: Station[]
+  refreshed_at: string
+}
+
+/** 工位详情里的车牌条目 */
+export interface StationPlate {
+  plate_no: string
+  /** true = 开单时快照的本单车牌；false = 账户下绑定的其他车辆 */
+  is_order: boolean
+}
+
+export interface StationOrderUser {
+  id: number
+  nickname: string
+  phone_masked: string
+  /** 完整手机号，管理端可见，用于拨打 */
+  phone: string
+  balance: number
+  coupon_count: number
+  plates: StationPlate[]
+}
+
+export interface StationOrder {
+  id: number
+  order_no: string
+  started_at: string
+  user: StationOrderUser
+}
+
+/**
+ * 工位详情聚合（GET /stations/{id}）。
+ * 只对进行中订单聚合用户资产；空闲/维护工位 order 为 null。
+ * 注意：不含任何金额字段——进行中订单不做费用试算（见 03 §6.3 金额口径）。
+ */
+export interface StationDetail extends Station {
+  capabilities: Capability[]
+  order: StationOrder | null
 }
 
 export type OrderStatus = 'ongoing' | 'done' | 'refunded'
@@ -107,4 +157,16 @@ export interface UserDetail {
   plate_no?: string
   order_count: number
   last_order_at?: string
+}
+
+/**
+ * 停车代缴记录：只记车牌、时间、操作人。
+ * 停车系统既不提供查询接口，也不回传金额，所以这里**没有金额字段**。
+ */
+export interface ParkingRecord {
+  id: number
+  shop_id: number
+  plate_no: string
+  paid_at: string
+  operator: string
 }

@@ -1,144 +1,114 @@
 <template>
   <view class="wb">
-    <!-- 门店切换 -->
-    <view class="shopbar">
-      <view class="shopbar__main" @tap="switchShop">
-        <text class="shopbar__mark">店</text>
-        <text class="shopbar__name">{{ shop?.name || '加载中' }}</text>
-        <text class="shopbar__meta">{{ shop?.station_total || 0 }} 个工位</text>
-        <text class="shopbar__switch">切换</text>
-      </view>
-      <view class="shopbar__tag" :class="envClass">{{ envText }}</view>
+    <!-- 环境提示：仅非生产环境出现，避免生产包多一行噪音 -->
+    <view v-if="CURRENT_ENV !== 'production'" class="envline">
+      <text class="envline__tag">{{ envText }}</text>
+      <text class="envline__text">mock 数据，接口未接入</text>
     </view>
 
-    <!-- 统计 -->
+    <!-- 状态统计条 -->
     <view class="stats">
-      <view class="stats__item stats__item--busy">
-        <text class="stats__num">{{ stats.busy }}</text>
-        <text class="stats__label">个 使用中</text>
+      <view class="stats__i">
+        <text class="stats__v stats__v--busy">{{ summary.busy }}<text class="stats__u">个</text></text>
+        <text class="stats__k">使用中</text>
       </view>
-      <view class="stats__item stats__item--idle">
-        <text class="stats__num">{{ stats.idle }}</text>
-        <text class="stats__label">个 空闲</text>
+      <view class="stats__i">
+        <text class="stats__v stats__v--idle">{{ summary.idle }}<text class="stats__u">个</text></text>
+        <text class="stats__k">空闲</text>
       </view>
-      <view class="stats__item stats__item--repair">
-        <text class="stats__num">{{ stats.repair }}</text>
-        <text class="stats__label">个 维护中</text>
+      <view class="stats__i">
+        <text class="stats__v stats__v--repair">{{ summary.repairing }}<text class="stats__u">个</text></text>
+        <text class="stats__k">维护中</text>
       </view>
     </view>
 
-    <!-- 工位网格 -->
-    <view class="panel">
-      <view class="panel__head">
-        <text class="panel__title">工位状态</text>
-        <text class="panel__time">{{ refreshAt }} 刷新</text>
-      </view>
+    <!-- 工位状态 -->
+    <view class="sec">
+      <text class="sec__t">工位状态</text>
+      <text class="sec__x">{{ refreshAt }} 刷新</text>
+    </view>
 
-      <view v-if="loading" class="skeleton">
-        <view v-for="i in 6" :key="i" class="skeleton__cell" />
-      </view>
+    <view v-if="loading" class="st-grid">
+      <view v-for="i in 6" :key="i" class="st-skeleton" />
+    </view>
 
-      <view v-else-if="!stations.length" class="empty">
-        <text class="empty__text">该门店暂无工位</text>
-      </view>
+    <view v-else-if="!stations.length" class="empty">
+      <text class="empty__icon">空</text>
+      <text class="empty__title">该门店暂无已上线工位</text>
+      <text class="empty__desc">联系总部确认工位配置</text>
+    </view>
 
-      <view v-else class="grid">
-        <view
-          v-for="item in stations"
-          :key="item.id"
-          class="cell"
-          :class="`cell--${item.status}`"
-          @tap="openDetail(item)"
-        >
-          <view class="cell__top">
-            <text class="cell__name">{{ item.name }}</text>
-            <text class="cell__dot" />
-          </view>
-          <text class="cell__state">{{ statusText(item.status) }}</text>
-          <text class="cell__desc">{{ describe(item) }}</text>
+    <view v-else class="st-grid">
+      <view
+        v-for="item in stations"
+        :key="item.id"
+        class="st"
+        :class="`st--${item.status}`"
+        @tap="openDetail(item)"
+      >
+        <view class="st__top">
+          <text class="st__idx">{{ stationNo(item) }}<text class="st__unit">号</text></text>
+          <text class="st__state"><text class="st__dot" />{{ statusText(item.status) }}</text>
         </view>
+        <text class="st__sub">{{ describe(item) }}</text>
       </view>
     </view>
 
     <!-- 门店工具 -->
-    <view class="panel">
-      <view class="panel__head">
-        <text class="panel__title">门店工具</text>
-        <text class="panel__note">随门店切换</text>
+    <view class="sec">
+      <text class="sec__t">门店工具</text>
+      <text class="sec__x">随门店切换</text>
+    </view>
+
+    <view v-if="!shopCaps.length" class="empty empty--inline">
+      <text class="empty__desc">该门店未启用门店级工具</text>
+    </view>
+
+    <view v-for="cap in shopCaps" :key="cap.key" class="tool" @tap="openTool(cap)">
+      <text class="tool__ic">{{ cap.icon }}</text>
+      <view class="tool__body">
+        <text class="tool__t">{{ cap.name }}缴费</text>
+        <text class="tool__s">{{ cap.desc }}</text>
       </view>
-      <view v-if="!capabilities.length" class="empty">
-        <text class="empty__text">该门店未启用门店级工具</text>
-      </view>
-      <view
-        v-for="cap in capabilities"
-        :key="cap.key"
-        class="tool"
-        @tap="openTool(cap)"
-      >
-        <text class="tool__icon">{{ cap.icon }}</text>
-        <view class="tool__body">
-          <text class="tool__name">{{ cap.name }}缴费</text>
-          <text class="tool__desc">{{ cap.desc }}</text>
-        </view>
-        <text class="tool__arrow">›</text>
-      </view>
-      <view class="panel__foot">
-        门店工具由该门店的能力配置下发，未启用的门店不显示。设备类操作（通风、毛巾柜）在工位详情里。
+      <text class="tool__arrow">›</text>
+    </view>
+
+    <text class="scope-note">
+      门店工具由该门店的能力配置下发，未启用的门店不显示。设备类操作（通风、毛巾柜）在工位详情里。
+    </text>
+
+    <!-- 底部悬浮切店条：切店入口只在这里 -->
+    <view class="floatbar">
+      <view class="floatbar__pill" @tap="openShopSheet">
+        <text class="floatbar__mark">{{ shopMark }}</text>
+        <text class="floatbar__name">{{ shop?.name || '加载中' }}</text>
+        <text class="floatbar__badge">{{ shop?.station_total || 0 }} 个工位</text>
+        <text class="floatbar__action">切换</text>
+        <text class="floatbar__caret">⌄</text>
       </view>
     </view>
 
-    <!-- 工位详情抽屉 -->
-    <view v-if="detail" class="sheet" @tap="closeDetail">
+    <!-- 门店切换弹层 -->
+    <view v-if="shopSheet" class="sheet" @tap="shopSheet = false">
       <view class="sheet__panel" @tap.stop>
         <view class="sheet__head">
-          <view class="sheet__titles">
-            <text class="sheet__title">{{ detail.name }}工位</text>
-            <text class="sheet__sub">{{ detail.shop_name }}</text>
+          <text class="sheet__title">切换门店</text>
+          <text class="sheet__close" @tap="shopSheet = false">关闭</text>
+        </view>
+        <view
+          v-for="item in shops"
+          :key="item.id"
+          class="shopitem"
+          :class="{ 'shopitem--on': item.id === shop?.id }"
+          @tap="chooseShop(item)"
+        >
+          <view class="shopitem__body">
+            <text class="shopitem__name">{{ item.name }}</text>
+            <text class="shopitem__meta">{{ item.station_total }} 个工位</text>
           </view>
-          <text class="sheet__close" @tap="closeDetail">关闭</text>
+          <text v-if="item.id === shop?.id" class="shopitem__on">当前</text>
         </view>
-
-        <view class="sheet__state" :class="`sheet__state--${detail.status}`">
-          <text class="sheet__state-text">{{ statusLine(detail) }}</text>
-          <text v-if="detail.status === 'busy'" class="sheet__timer">{{ elapsedOf(detail) }}</text>
-          <text v-if="detail.status === 'repair'" class="sheet__state-desc">
-            {{ detail.maintenance_at }} 由{{ detail.maintenance_by }}设置
-          </text>
-          <text v-if="detail.status === 'idle'" class="sheet__state-desc">等待使用</text>
-        </view>
-
-        <!-- 设备类操作 -->
-        <view v-if="deviceCaps.length" class="sheet__block">
-          <text class="sheet__block-title">设备操作</text>
-          <view class="sheet__actions">
-            <view
-              v-for="cap in deviceCaps"
-              :key="cap.key"
-              class="act"
-              :class="{ 'act--disabled': acting }"
-              @tap="runCommand(cap.key)"
-            >
-              <text class="act__icon">{{ cap.icon }}</text>
-              <text class="act__name">{{ cap.name }}</text>
-            </view>
-          </view>
-          <text class="sheet__hint">只下发命令，不查询设备回执状态。</text>
-        </view>
-
-        <!-- 维护开关 -->
-        <view class="sheet__block">
-          <text class="sheet__block-title">工位维护</text>
-          <button
-            class="sheet__btn"
-            :class="detail.status === 'repair' ? 'sheet__btn--ghost' : 'sheet__btn--warn'"
-            :loading="acting"
-            :disabled="acting || detail.status === 'busy'"
-            @tap="toggleMaintenance"
-          >
-            {{ detail.status === 'repair' ? '取消维护，恢复空闲' : '设为维护中' }}
-          </button>
-          <text v-if="detail.status === 'busy'" class="sheet__hint">工位使用中不能设置维护，需先结束订单。</text>
-        </view>
+        <text class="sheet__hint">切店只刷新本页；查询与审核是全局数据，不受影响。</text>
       </view>
     </view>
   </view>
@@ -147,7 +117,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
-import { fetchCapabilities, fetchShops, fetchStations, sendCommand, setMaintenance } from '@/api/shop'
+import { fetchCapabilities, fetchShopOverview, fetchShops } from '@/api/shop'
 import { fetchProfile } from '@/api/auth'
 import type { Capability, Shop, Station, StationStatus } from '@/types/api'
 import { CURRENT_ENV } from '@/config/env'
@@ -169,10 +139,10 @@ const auth = useAuthStore()
 const shops = ref<Shop[]>([])
 const shop = ref<Shop | null>(null)
 const stations = ref<Station[]>([])
+const summary = ref({ busy: 0, idle: 0, repairing: 0 })
 const capabilities = ref<Capability[]>([])
 const loading = ref(true)
-const detail = ref<Station | null>(null)
-const acting = ref(false)
+const shopSheet = ref(false)
 const refreshAt = ref('')
 const now = ref(Date.now())
 const booted = ref(false)
@@ -180,48 +150,41 @@ const booted = ref(false)
 let timer: ReturnType<typeof setInterval> | null = null
 
 const envText = CURRENT_ENV === 'production' ? '生产' : CURRENT_ENV === 'pre' ? '预发' : '开发'
-const envClass = `shopbar__tag--${CURRENT_ENV}`
 
 const statusText = (status: StationStatus) => STATUS_TEXT[status] || '未知'
 
-const stats = computed(() => {
-  const count = (s: StationStatus) => stations.value.filter(item => item.status === s).length
-  return { busy: count('busy'), idle: count('idle'), repair: count('repair') }
-})
-
-/** 设备类能力（通风 / 毛巾柜），门店工具（停车）不在工位详情里 */
-const deviceCaps = computed(() =>
-  capabilities.value.filter(cap => ['towel', 'fan'].includes(cap.key)),
+/** 门店工具：placement=shop 的能力（停车缴费） */
+const shopCaps = computed(() =>
+  capabilities.value.filter(cap => (cap.placement ?? 'shop') === 'shop'),
 )
 
-/** 依赖 now，计时器每秒触发一次重渲染 */
+const shopMark = computed(() => (shop.value?.name || '店').slice(0, 1))
+
+/** 「3 号」→「3」；后端给 st_index 时同样是去前导零后的值 */
+const stationNo = (station: Station) => station.name.replace(/\s*号$/, '')
+
+/** 依赖 now，计时器每秒触发重渲染。基于 started_at 与当前时间差，不做秒数累加 */
 const elapsedOf = (station: Station) => {
   if (station.status !== 'busy' || !station.started_at) return ''
   const seconds = Math.floor((now.value - new Date(station.started_at).getTime()) / 1000)
-  return formatElapsed(seconds)
+  return formatElapsed(seconds < 0 ? 0 : seconds)
 }
 
 const describe = (station: Station) => {
   if (station.status === 'busy') {
     const tail = station.plate_tail ? ` · 尾号 ${station.plate_tail}` : ''
-    return `${elapsedOf(station)}${tail}`
+    return `已洗 ${elapsedOf(station)}${tail}`
   }
-  if (station.status === 'repair') return `${station.maintenance_at} 由${station.maintenance_by}设置`
+  if (station.status === 'repair') return `${station.maintenance_at || ''} 由${station.maintenance_by || '总部'}设置`
   if (station.status === 'off') return '不参与排班'
   return '等待使用'
 }
 
-const statusLine = (station: Station) => {
-  if (station.status === 'busy') return '使用中'
-  if (station.status === 'repair') return '维护中'
-  if (station.status === 'off') return '已下线'
-  return '空闲'
-}
-
 const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1600 })
 
-const nowClock = () => {
-  const d = new Date()
+const clockOf = (iso: string) => {
+  const d = new Date(iso.replace(' ', 'T'))
+  if (Number.isNaN(d.getTime())) return ''
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
@@ -229,10 +192,12 @@ const nowClock = () => {
 const loadShopData = async (shopId: number) => {
   loading.value = true
   try {
-    const [stationList, caps] = await Promise.all([fetchStations(shopId), fetchCapabilities(shopId)])
-    stations.value = stationList
+    const [overview, caps] = await Promise.all([fetchShopOverview(shopId), fetchCapabilities(shopId)])
+    shop.value = overview.shop
+    stations.value = overview.stations
+    summary.value = overview.summary
     capabilities.value = caps
-    refreshAt.value = nowClock()
+    refreshAt.value = clockOf(overview.refreshed_at)
   } catch (error) {
     tip(error instanceof ApiError ? error.message : '工位状态加载失败')
   } finally {
@@ -241,14 +206,17 @@ const loadShopData = async (shopId: number) => {
 }
 
 const pickShop = async () => {
-  const list = shops.value
-  if (!list.length) {
+  if (!shops.value.length) {
     loading.value = false
     return
   }
   const saved = Number(Taro.getStorageSync(SHOP_KEY)) || 0
-  const current = list.find(item => item.id === saved) || list[0]
+  // 冷启动优先恢复上次门店；被移出 scope 则回落第一个并提示
+  const restored = shops.value.find(item => item.id === saved)
+  const current = restored || shops.value[0]
+  if (saved && !restored) tip('原门店已不在权限范围，已切换到 ' + current.name)
   shop.value = current
+  Taro.setStorageSync(SHOP_KEY, current.id)
   await loadShopData(current.id)
 }
 
@@ -277,64 +245,35 @@ const bootstrap = async () => {
   }
 }
 
-const switchShop = async () => {
+const openShopSheet = () => {
   if (shops.value.length < 2) {
     tip('当前账号只管理一家门店')
     return
   }
-  try {
-    const res = await Taro.showActionSheet({ itemList: shops.value.map(item => item.name) })
-    const target = shops.value[res.tapIndex]
-    if (!target || target.id === shop.value?.id) return
-    shop.value = target
-    Taro.setStorageSync(SHOP_KEY, target.id)
-    await loadShopData(target.id)
-  } catch {
-    // 用户取消
-  }
+  shopSheet.value = true
+}
+
+const chooseShop = async (target: Shop) => {
+  shopSheet.value = false
+  if (target.id === shop.value?.id) return
+  // 切店：立即清空旧门店数据，避免上一个店的工位残留
+  shop.value = target
+  stations.value = []
+  summary.value = { busy: 0, idle: 0, repairing: 0 }
+  Taro.setStorageSync(SHOP_KEY, target.id)
+  await loadShopData(target.id)
 }
 
 const openDetail = (station: Station) => {
-  detail.value = station
-}
-
-const closeDetail = () => {
-  detail.value = null
+  Taro.navigateTo({ url: `/packageStation/pages/station-detail/index?id=${station.id}` })
 }
 
 const openTool = (cap: Capability) => {
-  tip(`${cap.name}能力在 P2 接入`)
-}
-
-const runCommand = async (key: string) => {
-  if (!detail.value || acting.value) return
-  if (key !== 'towel' && key !== 'fan') return
-  acting.value = true
-  try {
-    const res = await sendCommand(detail.value.id, key)
-    tip(res.message)
-  } catch (error) {
-    tip(error instanceof ApiError ? error.message : '命令下发失败')
-  } finally {
-    acting.value = false
+  if (cap.key === 'parking_fee') {
+    Taro.navigateTo({ url: `/packageStation/pages/parking/index?shop_id=${shop.value?.id || 0}` })
+    return
   }
-}
-
-const toggleMaintenance = async () => {
-  if (!detail.value || acting.value) return
-  const target = detail.value
-  const enable = target.status !== 'repair'
-  acting.value = true
-  try {
-    await setMaintenance(target.id, enable)
-    tip(enable ? '已设为维护中' : '已恢复空闲')
-    if (shop.value) await loadShopData(shop.value.id)
-    detail.value = stations.value.find(item => item.id === target.id) || null
-  } catch (error) {
-    tip(error instanceof ApiError ? error.message : '操作失败')
-  } finally {
-    acting.value = false
-  }
+  tip(`${cap.name}能力待接入`)
 }
 
 onMounted(() => {
@@ -350,7 +289,7 @@ onUnmounted(() => {
 
 useDidShow(() => {
   now.value = Date.now()
-  // 首次由 onMounted 负责，这里只处理二次进入时的状态刷新
+  // 首次由 onMounted 负责；这里处理从工位详情返回时的状态回填
   if (booted.value && shop.value) {
     loadShopData(shop.value.id)
   }
@@ -365,237 +304,216 @@ usePullDownRefresh(async () => {
 <style lang="scss">
 .wb {
   min-height: 100vh;
-  padding: $sp-3 $page-x 48rpx;
+  // 底部留白 + 悬浮切店条
+  padding: $sp-3 $page-x calc(168rpx + env(safe-area-inset-bottom));
 }
 
-/* ---------- 门店栏 ---------- */
-.shopbar {
+/* ---------- 环境提示 ---------- */
+.envline {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8rpx 0 24rpx;
-
-  &__main {
-    display: flex;
-    align-items: center;
-    gap: 12rpx;
-    min-width: 0;
-    @include press;
-  }
-
-  &__mark {
-    width: 40rpx;
-    height: 40rpx;
-    border-radius: $r-xs;
-    background: $brand-soft;
-    color: $brand;
-    font-size: $fs-micro;
-    line-height: 40rpx;
-    text-align: center;
-  }
-
-  &__name {
-    font-size: $fs-h3;
-    font-weight: $fw-semibold;
-    color: $ink;
-    @include ellipsis;
-  }
-
-  &__meta {
-    font-size: $fs-caption;
-    color: $ink-3;
-  }
-
-  &__switch {
-    font-size: $fs-caption;
-    color: $brand;
-    padding: 4rpx 12rpx;
-    border-radius: $r-xs;
-    background: $brand-soft;
-  }
+  gap: 12rpx;
+  margin-bottom: $sp-2;
 
   &__tag {
-    flex: none;
     padding: 0 12rpx;
     height: 34rpx;
     line-height: 34rpx;
     border-radius: $r-xs;
     font-size: $fs-micro;
-    background: $off-fill;
-    color: $off-ink;
+    background: $warn-soft;
+    color: $warn;
+    border: 1rpx solid $warn-line;
+  }
 
-    &--production {
-      background: $idle-fill;
-      color: $idle-ink;
-    }
-
-    &--pre {
-      background: $busy-fill;
-      color: $busy-ink;
-    }
+  &__text {
+    font-size: $fs-micro;
+    color: $ink-3;
   }
 }
 
-/* ---------- 统计 ---------- */
+/* ---------- 状态统计条 ---------- */
 .stats {
   display: flex;
-  gap: $grid-gap;
+  align-items: stretch;
+  padding: 26rpx 8rpx;
+  border-radius: $r-2xl;
+  background: $card;
+  box-shadow: $shadow-card;
   margin-bottom: $card-gap;
 
-  &__item {
+  &__i {
     flex: 1;
-    padding: 20rpx;
-    border-radius: $r-lg;
-    border: 2rpx solid transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 
-    &--busy {
-      @include state-block($busy-fill, $busy-line, $busy-ink);
-    }
-
-    &--idle {
-      @include state-block($idle-fill, $idle-line, $idle-ink);
-    }
-
-    &--repair {
-      @include state-block($repair-fill, $repair-line, $repair-ink);
+    & + & {
+      border-left: 1rpx solid $line;
+      margin: 8rpx 0;
     }
   }
 
-  &__num {
-    display: block;
+  &__v {
     font-size: $fs-h1;
     font-weight: $fw-semibold;
-    line-height: 1.2;
+    line-height: 1.15;
     @include tabular;
+
+    &--busy { color: $busy-ink; }
+    &--idle { color: $idle-ink; }
+    &--repair { color: $repair-ink; }
   }
 
-  &__label {
-    display: block;
-    margin-top: 4rpx;
-    font-size: $fs-caption-sm;
-    opacity: 0.75;
+  &__u {
+    font-size: $fs-micro;
+    font-weight: $fw-regular;
+    color: $ink-3;
+    margin-left: 2rpx;
+  }
+
+  &__k {
+    margin-top: 6rpx;
+    font-size: $fs-micro;
+    color: $ink-3;
   }
 }
 
-/* ---------- 面板 ---------- */
-.panel {
-  @include card;
+/* ---------- 区块标题 ---------- */
+.sec {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 6rpx 0 16rpx;
 
-  &__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20rpx;
-  }
-
-  &__title {
+  &__t {
     font-size: $fs-title;
     font-weight: $fw-semibold;
     color: $ink;
   }
 
-  &__time,
-  &__note {
-    font-size: $fs-caption-sm;
+  &__x {
+    font-size: $fs-micro;
     color: $ink-3;
-    @include tabular;
-  }
-
-  &__foot {
-    margin-top: 16rpx;
-    font-size: $fs-caption-sm;
-    color: $ink-3;
-    line-height: 1.7;
   }
 }
 
-/* ---------- 工位网格 ---------- */
-.grid {
+/* ---------- 工位网格：2 列 ---------- */
+.st-grid {
   display: flex;
   flex-wrap: wrap;
   gap: $grid-gap;
+  margin-bottom: $card-gap;
 }
 
-.cell {
-  width: calc((100% - #{$grid-gap} * 2) / 3);
-  padding: 20rpx 16rpx;
-  border-radius: $r-md;
+.st {
+  width: calc((100% - #{$grid-gap}) / 2);
+  padding: 20rpx 22rpx 18rpx;
+  border-radius: $r-xl;
   border: 2rpx solid transparent;
   @include press;
 
-  &--idle {
-    @include state-block($idle-fill, $idle-line, $idle-ink);
-  }
-
-  &--busy {
-    @include state-block($busy-fill, $busy-line, $busy-ink);
-  }
-
-  &--repair {
-    @include state-block($repair-fill, $repair-line, $repair-ink);
-  }
-
-  &--off {
-    @include state-block($off-fill, $off-line, $off-ink);
-  }
+  &--idle { @include state-block($idle-fill, $idle-line, $idle-ink); }
+  &--busy { @include state-block($busy-fill, $busy-line, $busy-ink); }
+  &--repair { @include state-block($repair-fill, $repair-line, $repair-ink); }
+  &--off { @include state-block($off-fill, $off-line, $off-ink); }
 
   &__top {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     justify-content: space-between;
   }
 
-  &__name {
+  &__idx {
     font-size: $fs-h3;
     font-weight: $fw-semibold;
     @include tabular;
   }
 
-  &__dot {
-    width: 12rpx;
-    height: 12rpx;
-    border-radius: $r-full;
-    background: currentColor;
-    opacity: 0.55;
+  &__unit {
+    font-size: $fs-micro;
+    font-weight: $fw-regular;
+    opacity: 0.7;
+    margin-left: 2rpx;
   }
 
   &__state {
+    display: flex;
+    align-items: center;
+    font-size: $fs-micro;
+    font-weight: $fw-medium;
+  }
+
+  &__dot {
+    width: 8rpx;
+    height: 8rpx;
+    border-radius: $r-full;
+    background: currentColor;
+    margin-right: 8rpx;
+    flex: none;
+  }
+
+  &__sub {
     display: block;
-    margin-top: 6rpx;
-    font-size: $fs-caption;
+    margin-top: 10rpx;
+    font-size: $fs-micro;
     opacity: 0.85;
+    line-height: 1.5;
+    @include tabular;
+  }
+}
+
+.st-skeleton {
+  width: calc((100% - #{$grid-gap}) / 2);
+  height: 132rpx;
+  border-radius: $r-xl;
+  background: $line;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* ---------- 空态 ---------- */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 56rpx 32rpx;
+  margin-bottom: $card-gap;
+  border-radius: $r-2xl;
+  background: $card;
+
+  &--inline {
+    padding: 40rpx 32rpx;
+  }
+
+  &__icon {
+    width: 88rpx;
+    height: 88rpx;
+    border-radius: $r-2xl;
+    background: $fill;
+    color: $ink-4;
+    font-size: $fs-title;
+    line-height: 88rpx;
+    text-align: center;
+    margin-bottom: 16rpx;
+  }
+
+  &__title {
+    font-size: $fs-body-sm;
+    font-weight: $fw-medium;
+    color: $ink-2;
   }
 
   &__desc {
-    display: block;
-    margin-top: 4rpx;
+    margin-top: 6rpx;
     font-size: $fs-micro;
-    opacity: 0.7;
-    line-height: 1.5;
-    min-height: 56rpx;
-  }
-}
-
-.skeleton {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $grid-gap;
-
-  &__cell {
-    width: calc((100% - #{$grid-gap} * 2) / 3);
-    height: 150rpx;
-    border-radius: $r-md;
-    background: $fill;
-  }
-}
-
-.empty {
-  padding: 48rpx 0;
-  text-align: center;
-
-  &__text {
-    font-size: $fs-caption;
     color: $ink-3;
+    text-align: center;
+    line-height: 1.6;
   }
 }
 
@@ -603,15 +521,18 @@ usePullDownRefresh(async () => {
 .tool {
   display: flex;
   align-items: center;
-  gap: 16rpx;
-  padding: 20rpx 0;
+  gap: 20rpx;
+  padding: 24rpx 28rpx;
+  border-radius: $r-2xl;
+  background: $card;
+  box-shadow: $shadow-card;
   @include press;
 
   & + & {
-    border-top: 1rpx solid $line;
+    margin-top: 16rpx;
   }
 
-  &__icon {
+  &__ic {
     width: $icon-box;
     height: $icon-box;
     border-radius: $r-lg;
@@ -620,6 +541,7 @@ usePullDownRefresh(async () => {
     font-size: $fs-body;
     line-height: $icon-box;
     text-align: center;
+    flex: none;
   }
 
   &__body {
@@ -627,16 +549,17 @@ usePullDownRefresh(async () => {
     min-width: 0;
   }
 
-  &__name {
+  &__t {
     display: block;
     font-size: $fs-title;
+    font-weight: $fw-medium;
     color: $ink;
   }
 
-  &__desc {
+  &__s {
     display: block;
     margin-top: 2rpx;
-    font-size: $fs-caption-sm;
+    font-size: $fs-micro;
     color: $ink-3;
   }
 
@@ -646,7 +569,86 @@ usePullDownRefresh(async () => {
   }
 }
 
-/* ---------- 抽屉 ---------- */
+.scope-note {
+  display: block;
+  margin: 16rpx 4rpx 0;
+  font-size: $fs-micro;
+  color: $ink-3;
+  line-height: 1.7;
+}
+
+/* ---------- 底部悬浮切店条 ---------- */
+.floatbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  padding: 44rpx $page-x calc(24rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, $bg 52%, rgba(247, 248, 250, 0));
+  pointer-events: none;
+
+  &__pill {
+    display: flex;
+    align-items: center;
+    gap: 16rpx;
+    height: 92rpx;
+    padding: 0 26rpx 0 20rpx;
+    border-radius: $r-full;
+    background: rgba(255, 255, 255, 0.97);
+    border: 2rpx solid $line-2;
+    box-shadow: $shadow-float;
+    pointer-events: auto;
+    @include press;
+  }
+
+  &__mark {
+    width: 56rpx;
+    height: 56rpx;
+    border-radius: $r-full;
+    background: $brand-soft;
+    color: $brand-deep;
+    font-size: $fs-body-sm;
+    font-weight: $fw-semibold;
+    line-height: 56rpx;
+    text-align: center;
+    flex: none;
+  }
+
+  &__name {
+    font-size: $fs-body;
+    font-weight: $fw-semibold;
+    color: $ink;
+    @include ellipsis;
+  }
+
+  &__badge {
+    padding: 0 12rpx;
+    height: 34rpx;
+    line-height: 34rpx;
+    border-radius: $r-sm;
+    background: $fill;
+    color: $ink-2;
+    font-size: $fs-micro;
+    flex: none;
+  }
+
+  &__action {
+    margin-left: auto;
+    font-size: $fs-caption;
+    color: $ink-3;
+    flex: none;
+  }
+
+  &__caret {
+    font-size: $fs-caption;
+    color: $ink-3;
+    margin-left: 2rpx;
+    flex: none;
+  }
+}
+
+/* ---------- 切店弹层 ---------- */
 .sheet {
   position: fixed;
   top: 0;
@@ -660,8 +662,7 @@ usePullDownRefresh(async () => {
 
   &__panel {
     width: 100%;
-    padding: $card-padding $page-x;
-    padding-bottom: calc(#{$card-padding} + env(safe-area-inset-bottom));
+    padding: $card-padding $page-x calc(#{$card-padding} + env(safe-area-inset-bottom));
     border-radius: $r-sheet $r-sheet 0 0;
     background: $card;
     box-shadow: $shadow-sheet;
@@ -669,153 +670,70 @@ usePullDownRefresh(async () => {
 
   &__head {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    margin-bottom: 24rpx;
+    margin-bottom: 8rpx;
   }
 
   &__title {
-    display: block;
     font-size: $fs-h4;
     font-weight: $fw-semibold;
     color: $ink;
   }
 
-  &__sub {
-    display: block;
-    margin-top: 4rpx;
-    font-size: $fs-caption;
-    color: $ink-3;
-  }
-
   &__close {
     font-size: $fs-caption;
     color: $ink-3;
-    padding: 4rpx 8rpx;
-  }
-
-  &__state {
-    padding: 28rpx;
-    border-radius: $r-lg;
-    border: 2rpx solid transparent;
-    margin-bottom: 24rpx;
-
-    &--busy {
-      @include state-block($busy-fill, $busy-line, $busy-ink);
-    }
-
-    &--idle {
-      @include state-block($idle-fill, $idle-line, $idle-ink);
-    }
-
-    &--repair {
-      @include state-block($repair-fill, $repair-line, $repair-ink);
-    }
-
-    &--off {
-      @include state-block($off-fill, $off-line, $off-ink);
-    }
-  }
-
-  &__state-text {
-    display: block;
-    font-size: $fs-title;
-    font-weight: $fw-medium;
-    opacity: 0.85;
-  }
-
-  &__timer {
-    display: block;
-    margin-top: 8rpx;
-    font-size: $fs-display;
-    font-weight: $fw-semibold;
-    line-height: 1.1;
-    @include tabular;
-  }
-
-  &__state-desc {
-    display: block;
-    margin-top: 6rpx;
-    font-size: $fs-caption-sm;
-    opacity: 0.75;
-  }
-
-  &__block {
-    margin-bottom: 28rpx;
-  }
-
-  &__block-title {
-    display: block;
-    margin-bottom: 16rpx;
-    font-size: $fs-body;
-    font-weight: $fw-medium;
-    color: $ink-2;
-  }
-
-  &__actions {
-    display: flex;
-    gap: $grid-gap;
+    padding: 8rpx;
   }
 
   &__hint {
     display: block;
-    margin-top: 12rpx;
-    font-size: $fs-caption-sm;
+    margin-top: 20rpx;
+    font-size: $fs-micro;
     color: $ink-3;
     line-height: 1.6;
   }
-
-  &__btn {
-    width: 100%;
-    height: $btn-h;
-    border-radius: $r-md;
-    font-size: $fs-title;
-    font-weight: $fw-semibold;
-    line-height: $btn-h;
-    text-align: center;
-    @include press;
-
-    &--warn {
-      background: $danger-soft;
-      color: $danger-ink;
-    }
-
-    &--ghost {
-      background: $idle-fill;
-      color: $idle-ink;
-    }
-
-    &[disabled] {
-      background: $fill;
-      color: $ink-4;
-    }
-  }
 }
 
-.act {
-  flex: 1;
-  padding: 20rpx 0;
-  border-radius: $r-md;
-  background: $fill;
-  text-align: center;
+.shopitem {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid $line;
   @include press;
 
-  &--disabled {
-    opacity: 0.5;
+  &--on {
+    .shopitem__name { color: $brand-deep; }
   }
 
-  &__icon {
-    display: block;
-    font-size: $fs-h3;
-    color: $ink;
-    font-weight: $fw-semibold;
+  &__body {
+    flex: 1;
+    min-width: 0;
   }
 
   &__name {
     display: block;
+    font-size: $fs-title;
+    font-weight: $fw-medium;
+    color: $ink;
+  }
+
+  &__meta {
+    display: block;
     margin-top: 4rpx;
-    font-size: $fs-caption;
-    color: $ink-2;
+    font-size: $fs-micro;
+    color: $ink-3;
+  }
+
+  &__on {
+    font-size: $fs-micro;
+    color: $brand-deep;
+    padding: 0 12rpx;
+    height: 34rpx;
+    line-height: 34rpx;
+    border-radius: $r-sm;
+    background: $brand-soft;
   }
 }
 </style>
