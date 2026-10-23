@@ -17,7 +17,8 @@
     "build:h5": "taro build --type h5",
     "dev:h5": "npm run build:h5 -- --watch",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint --ext .vue,.ts src --fix"
+    "lint": "eslint --ext .vue,.ts src --fix",
+    "build:demo": "TARO_APP_ENV=development taro build --type weapp"
   },
   "browserslist": [
     "defaults and fully supports es6-module",

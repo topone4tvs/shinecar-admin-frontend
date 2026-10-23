@@ -119,6 +119,17 @@ export async function request<T = unknown>(options: RequestOptions): Promise<T> 
     throw new ApiError(code ?? 401, body?.message || '登录已失效', body?.data, traceId)
   }
 
+  // 后端路由不存在（返回的不是统一信封）：多数是接口还没实现，别误报成「请求失败」
+  if (res.statusCode === 404 && code === undefined) {
+    const { adminApiPrefix } = getEnvConfig()
+    throw new ApiError(
+      404,
+      `接口不存在：${method} ${adminApiPrefix}${url}——后端尚未实现该路由`,
+      body,
+      traceId,
+    )
+  }
+
   if (res.statusCode < 200 || res.statusCode >= 300) {
     throw new ApiError(res.statusCode, body?.message || `请求失败（${res.statusCode}）`, body?.data, traceId)
   }

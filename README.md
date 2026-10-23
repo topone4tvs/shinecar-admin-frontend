@@ -21,6 +21,10 @@ yarn dev:weapp:pre # 开发（连预发 https://pre-api.shinecar.club）
 yarn build:weapp
 ```
 
+> **构建口径别搞错。** `build:weapp` 是 production 构建，mock 在其中**强制关闭**，登录会真的去请求
+> `https://api.shinecar.club/admin/v1/auth/wx-login`——后端还没这条路由，必然 404。
+> 只想看界面就用 **`yarn build:demo`**（等价于 development 环境 + mock 开启，请求不发网络）。
+
 ## 环境
 
 | 环境 | 触发方式 | API 基址 |
@@ -44,6 +48,19 @@ yarn build:weapp
 | 关闭后 | 自动走真实接口，页面与 `api/` 层零改动 |
 
 mock 与真实接口共用 `src/utils/request.ts`，只有一处分支（`request()` 开头的 `isMockEnabled()`），后端就绪时删掉该分支即可。
+
+**前端已经按契约写好的 14 条管理端接口，后端目前一条都没有实现**（属于 P0a–P4 交付物，设计见 `docs/admin-app/03-后端技术方案.md`）：
+
+| 分组 | 路径 |
+|---|---|
+| 登录 | `POST /auth/wx-login`、`POST /auth/bind`、`POST /auth/logout`、`GET /auth/profile` |
+| 门店与工位 | `GET /shops`、`GET /shops/:id/stations`、`GET /shops/:id/capabilities` |
+| 设备 | `POST /stations/:id/commands`、`PATCH /stations/:id/maintenance` |
+| 订单 | `GET /orders`、`GET /orders/:id` |
+| 审核 | `GET /reviews`、`POST /reviews/:id/approve`、`POST /reviews/:id/reject` |
+| 用户 | `GET /users/:id` |
+
+真实接口模式下打开登录页，页面会显式提示「该路由由后端 P0a 提供，尚未上线」，并给一个切回演示数据的入口；`request()` 在 404 且响应不是统一信封时，报错文案是「接口不存在：`POST /admin/v1/auth/wx-login`——后端尚未实现该路由」，不会再含糊成「请求失败」。
 
 ### 真机预览（不需要认证、不需要配域名）
 

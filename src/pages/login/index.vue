@@ -19,6 +19,14 @@
           <button v-if="step === 1" class="btn" :loading="authorizing" :disabled="authorizing" @tap="handleWxAuth">
             微信一键授权
           </button>
+
+          <!-- 真实接口模式下把话说清楚：这条路由目前不存在，避免让人以为是接口写错了 -->
+          <view v-if="step === 1 && !mockOn" class="offline">
+            <text class="offline__title">当前是真实接口模式</text>
+            <text class="offline__body">{{ loginPath }} 由后端 P0a 提供，尚未上线，点了会报 404。</text>
+            <text v-if="canDemo" class="offline__action" @tap="enableDemo">改用演示数据 →</text>
+            <text v-else class="offline__body">这是生产构建，演示数据被强制关闭。请用 yarn build:demo 重新构建。</text>
+          </view>
         </view>
       </view>
 
@@ -89,8 +97,9 @@ import { onMounted, ref } from 'vue'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { bind, fetchProfile, wxLogin } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
-import { isMockEnabled } from '@/mock/config'
+import { isMockEnabled, setMockEnabled } from '@/mock/config'
 import { mockAccounts } from '@/mock'
+import { CURRENT_ENV, getEnvConfig } from '@/config/env'
 import { ApiError } from '@/utils/error'
 
 const WORKBENCH = '/pages/workbench/index'
@@ -106,6 +115,14 @@ const authCode = ref('')
 const mockOn = isMockEnabled()
 const accounts = mockOn ? mockAccounts() : []
 const buildStamp = __BUILD_STAMP__
+const loginPath = `${getEnvConfig().apiBaseUrl}${getEnvConfig().adminApiPrefix}/auth/wx-login`
+const canDemo = CURRENT_ENV !== 'production'
+
+/** 真实接口模式下的一键自救：切回演示数据并重进登录页 */
+const enableDemo = () => {
+  setMockEnabled(true)
+  Taro.reLaunch({ url: '/pages/login/index' })
+}
 
 const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1800 })
 
@@ -255,11 +272,43 @@ const fill = (nextPhone: string, nextCode: string) => {
   }
 }
 
+// 真实接口模式提示：后端路由不存在时，把「为什么点不通」说在前面
+.offline {
+  margin-top: 20rpx;
+  padding: 20rpx 24rpx;
+  background: $warn-soft;
+  border: 1rpx solid $warn-line;
+  border-radius: 16rpx;
+
+  &__title {
+    display: block;
+    color: $warn;
+    font-size: 24rpx;
+    font-weight: 600;
+  }
+
+  &__body {
+    display: block;
+    margin-top: 8rpx;
+    color: $ink-3;
+    font-size: 22rpx;
+    line-height: 1.6;
+    word-break: break-all;
+  }
+
+  &__action {
+    display: inline-block;
+    margin-top: 12rpx;
+    color: $brand;
+    font-size: 24rpx;
+    font-weight: 600;
+  }
+}
+
 .step {
   display: flex;
   gap: 20rpx;
   padding: 32rpx 0;
-
   & + & {
     border-top: 1rpx solid $line;
   }
