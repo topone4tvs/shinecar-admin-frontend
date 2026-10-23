@@ -39,23 +39,25 @@
           <view class="field">
             <text class="field__label">手机号</text>
             <input
-              v-model="phone"
+              :value="phone"
               class="field__input"
               type="number"
               maxlength="11"
               placeholder="请输入 11 位手机号"
               placeholder-class="field__ph"
+              @input="onPhoneInput"
             />
           </view>
 
           <view class="field">
             <text class="field__label">授权码</text>
             <input
-              v-model="authCode"
+              :value="authCode"
               class="field__input"
               maxlength="8"
               placeholder="8 位数字与大小写字母"
               placeholder-class="field__ph"
+              @input="onCodeInput"
             />
           </view>
 
@@ -101,6 +103,7 @@ import { isMockEnabled, setMockEnabled } from '@/mock/config'
 import { mockAccounts } from '@/mock'
 import { CURRENT_ENV, getEnvConfig } from '@/config/env'
 import { ApiError } from '@/utils/error'
+import { inputValue } from '@/utils/input'
 
 const WORKBENCH = '/pages/workbench/index'
 
@@ -125,6 +128,13 @@ const enableDemo = () => {
 }
 
 const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1800 })
+
+const onPhoneInput = (event: unknown) => {
+  phone.value = inputValue(event)
+}
+const onCodeInput = (event: unknown) => {
+  authCode.value = inputValue(event)
+}
 
 const gotoWorkbench = () => {
   Taro.reLaunch({ url: WORKBENCH })

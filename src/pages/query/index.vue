@@ -16,23 +16,25 @@
       <view class="field">
         <text class="field__label">手机号</text>
         <input
-          v-model="phone"
+          :value="phone"
           class="field__input"
           type="number"
           maxlength="11"
           placeholder="选填，精确匹配"
           placeholder-class="field__ph"
+          @input="onPhoneInput"
         />
       </view>
 
       <view class="field">
         <text class="field__label">车牌号</text>
         <input
-          v-model="plate"
+          :value="plate"
           class="field__input"
           maxlength="8"
           placeholder="可只输后几位，如 D2311"
           placeholder-class="field__ph"
+          @input="onPlateInput"
         />
       </view>
 
@@ -101,6 +103,7 @@ import { fetchShops } from '@/api/shop'
 import type { OrderItem, OrderStatus, Shop } from '@/types/api'
 import { formatClock, formatDateTime, formatMoney, secondsSince } from '@/utils/format'
 import { ApiError } from '@/utils/error'
+import { inputValue } from '@/utils/input'
 
 const RANGES: Array<{ key: 'today' | '7d' | 'all'; label: string }> = [
   { key: 'today', label: '今天' },
@@ -134,6 +137,15 @@ const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1
 
 const setRange = (key: 'today' | '7d' | 'all') => {
   range.value = key
+}
+
+const onPhoneInput = (event: unknown) => {
+  phone.value = inputValue(event)
+}
+
+const onPlateInput = (event: unknown) => {
+  // 车牌习惯大写，统一转一下，省得用户开大写锁定
+  plate.value = inputValue(event).toUpperCase()
 }
 
 const pickShop = async () => {
