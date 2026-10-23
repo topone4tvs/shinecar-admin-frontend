@@ -362,7 +362,7 @@ usePullDownRefresh(async () => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .wb {
   min-height: 100vh;
   padding: $sp-3 $page-x 48rpx;

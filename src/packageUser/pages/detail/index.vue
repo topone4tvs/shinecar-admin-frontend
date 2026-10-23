@@ -7,7 +7,7 @@
 
 <script setup lang="ts"></script>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .page {
   min-height: 100vh;
   padding: 48px;

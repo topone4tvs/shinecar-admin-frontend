@@ -208,7 +208,7 @@ usePullDownRefresh(async () => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .qy {
   min-height: 100vh;
   padding: $sp-3 $page-x 48rpx;

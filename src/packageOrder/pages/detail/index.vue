@@ -107,7 +107,7 @@ const load = async () => {
 load()
 </script>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .od {
   min-height: 100vh;
   padding: $sp-3 $page-x 48rpx;

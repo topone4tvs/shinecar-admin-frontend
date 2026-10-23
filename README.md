@@ -93,6 +93,17 @@ src/
 2. **前端只认 `route`，不认 `key`**：能力配置下发什么 `route` 就调什么接口，不在前端硬编码 action → 接口的映射。
 3. **所有写操作带 `Idempotency-Key`**：按钮重试复用同一个 key，用户重新点击换新 key。
 
+## 样式约定（踩过坑）
+
+**SFC 样式一律不要写 `scoped`。**
+
+Taro 4 的小程序渲染器没有实现 Vue 的 `setScopeId`，元素上永远不会带 `data-v-xxx` 属性，
+而 `scoped` 会把样式编译成 `.login[data-v-2eca67d6]{...}`，**选择器全部失配 → 页面有文字、零样式**。
+微信小程序本身按页面隔离 WXSS，`scoped` 并不必要；跨文件复用靠 BEM 前缀（`.login` `.step` `.mock` 等）区分。
+
+另：控制台的 `[渲染层错误] Listener added for a 'DOMNodeRemoved' mutation event...` 是开发者工具渲染层的兼容性提示，
+与本项目代码无关，不影响渲染，忽略即可。
+
 ## 文档
 
 - 方案总览：[docs/admin-app/README.md](docs/admin-app/README.md)

@@ -189,7 +189,7 @@ const fill = (nextPhone: string, nextCode: string) => {
 }
 </script>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .login {
   min-height: 100vh;
   padding: 120rpx $page-x 64rpx;

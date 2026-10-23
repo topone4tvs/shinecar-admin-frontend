@@ -98,7 +98,7 @@ useDidShow(() => {
 })
 </script>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .me {
   min-height: 100vh;
   padding: $sp-3 $page-x 48rpx;
