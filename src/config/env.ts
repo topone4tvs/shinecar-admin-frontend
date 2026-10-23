@@ -15,6 +15,11 @@ export interface EnvConfig {
   wechatAppId: string
   /** 是否输出调试日志 */
   enableDebug: boolean
+  /**
+   * 是否启用内置 mock 数据。
+   * 后端未接入时用于真机走查 UI 与交互；production 恒为 false，不可覆盖。
+   */
+  enableMock: boolean
 }
 
 const normalizeEnv = (env: string): Environment => {
@@ -33,6 +38,7 @@ const envConfigs: Record<Environment, EnvConfig> = {
     assetBaseUrl: 'https://res.shinecar.club',
     wechatAppId: 'wx4cb45f57b38380a7',
     enableDebug: true,
+    enableMock: true,
   },
   pre: {
     apiBaseUrl: 'https://pre-api.shinecar.club',
@@ -40,6 +46,8 @@ const envConfigs: Record<Environment, EnvConfig> = {
     assetBaseUrl: 'https://res.shinecar.club',
     wechatAppId: 'wx4cb45f57b38380a7',
     enableDebug: true,
+    // 预发默认也走 mock：后端 /admin/v1 尚未实现，先保证真机可完整走查
+    enableMock: true,
   },
   production: {
     apiBaseUrl: 'https://api.shinecar.club',
@@ -47,6 +55,7 @@ const envConfigs: Record<Environment, EnvConfig> = {
     assetBaseUrl: 'https://res.shinecar.club',
     wechatAppId: 'wx4cb45f57b38380a7',
     enableDebug: false,
+    enableMock: false,
   },
 }
 

@@ -1,6 +1,11 @@
 import Taro from '@tarojs/taro'
 import { getEnvConfig } from '@/config/env'
+import { isMockEnabled } from '@/mock/config'
+import { dispatchMock } from '@/mock'
 import { clearToken, getToken } from './token'
+import { ApiError } from './error'
+
+export { ApiError }
 
 /** 后端统一响应体（internal/pkg/response/response.go） */
 export interface ApiEnvelope<T> {
@@ -8,20 +13,6 @@ export interface ApiEnvelope<T> {
   message: string
   data?: T
   success?: boolean
-}
-
-export class ApiError extends Error {
-  code: number
-  data?: unknown
-  traceId?: string
-
-  constructor(code: number, message: string, data?: unknown, traceId?: string) {
-    super(message)
-    this.name = 'ApiError'
-    this.code = code
-    this.data = data
-    this.traceId = traceId
-  }
 }
 
 export interface RequestOptions {
@@ -73,9 +64,16 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 /**
  * 统一请求入口。
  * 约定：不自动 toast（列表页内联展示、操作类由调用方 toast），只抛 ApiError。
+ *
+ * mock 模式下（development / pre）请求不发出网络，直接由内置 mock 层按同一契约返回，
+ * 后端 /admin/v1 就绪后关掉开关即可，页面与 api 层无需改动。
  */
 export async function request<T = unknown>(options: RequestOptions): Promise<T> {
   const { url, method = 'GET', data, auth = true, timeout = DEFAULT_TIMEOUT } = options
+
+  if (isMockEnabled()) {
+    return dispatchMock<T>(url, method, data as Record<string, any> | undefined)
+  }
 
   const header: Record<string, string> = { 'Content-Type': 'application/json' }
   if (auth) {

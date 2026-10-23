@@ -4,7 +4,7 @@
   "description": "焕车掌柜 · 管理端小程序",
   "appid": "wx4cb45f57b38380a7",
   "setting": {
-    "urlCheck": true,
+    "urlCheck": false,
     "es6": true,
     "enhance": true,
     "compileHotReLoad": false,
