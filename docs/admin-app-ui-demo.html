@@ -1,0 +1,1877 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>焕车运维 · 管理员小程序 方案与样式 Demo</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --brand: #E6436E;
+    --brand-deep: #A82750;
+    --brand-soft: #FDEBEF;
+    --ink: #1f2329;
+    --ink-2: #6b7280;
+    --ink-3: #9aa1a9;
+    --line: #eef0f2;
+    --line-2: #e4e7eb;
+    --bg: #eef0f3;
+    --card: #fff;
+    --green: #52C41A;
+    --green-ink: #2F7A12;
+    --green-bg: #F3FBEE;
+    --green-line: #CBE9B8;
+    --orange: #F9C055;
+    --orange-ink: #8F5E00;
+    --orange-bg: #FFF9EC;
+    --orange-line: #F5DFB0;
+    --danger: #D93026;
+    --danger-bg: #FEF1F0;
+    --danger-line: #F6C9C5;
+  }
+  body {
+    margin: 0; padding: 36px 28px 64px; background: var(--bg);
+    font-family: 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    color: var(--ink); -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1200px; margin: 0 auto; }
+
+  /* ---------- 页头 ---------- */
+  .hd h1 { font-size: 23px; font-weight: 600; margin: 0 0 8px; letter-spacing: -.2px; }
+  .hd p { font-size: 13px; color: var(--ink-2); margin: 0 0 12px; line-height: 1.8; max-width: 780px; }
+  .hd .tags { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hd .tag {
+    font-size: 11px; padding: 4px 10px; border-radius: 999px; font-weight: 500;
+    background: #fff; color: var(--ink-2); border: 1px solid var(--line-2);
+  }
+  .hd .tag.main { background: var(--brand-soft); color: var(--brand-deep); border-color: transparent; }
+
+  .layout { display: flex; gap: 28px; align-items: flex-start; margin-top: 26px; }
+
+  /* ---------- 左侧舞台 ---------- */
+  .stage { width: 375px; flex: 0 0 auto; position: sticky; top: 24px; }
+  .screen-switch { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+  .screen-switch button {
+    font: inherit; font-size: 11.5px; padding: 5px 10px; border-radius: 999px;
+    border: 1px solid var(--line-2); background: #fff; color: var(--ink-2); cursor: pointer;
+    transition: .15s;
+  }
+  .screen-switch button:hover { border-color: #cfd4da; }
+  .screen-switch button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .stage-tip { font-size: 11.5px; color: var(--ink-3); text-align: center; margin: 12px 0 0; line-height: 1.7; }
+
+  .phone {
+    width: 375px; height: 788px; border-radius: 46px; background: #1c1f24;
+    padding: 9px; box-shadow: 0 22px 48px rgba(23,35,61,.22), 0 2px 6px rgba(23,35,61,.1);
+    position: relative;
+  }
+  .phone__inner {
+    width: 100%; height: 100%; border-radius: 38px; background: #f7f8fa;
+    overflow: hidden; display: flex; flex-direction: column; position: relative;
+  }
+  .statusbar {
+    height: 34px; flex: 0 0 34px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 22px 0 26px; font-size: 12px; font-weight: 600; color: var(--ink);
+    background: #f7f8fa;
+  }
+  .statusbar__right { display: flex; align-items: center; gap: 5px; }
+  .statusbar__right i { display: block; width: 3px; height: 8px; border-radius: 1px; background: var(--ink); opacity: .8; }
+  .statusbar__right i:nth-child(2) { height: 10px; }
+  .statusbar__right i:nth-child(3) { height: 12px; }
+  .statusbar__bat { width: 20px; height: 10px; border: 1px solid rgba(31,35,41,.55); border-radius: 3px; position: relative; margin-left: 3px; }
+  .statusbar__bat::after { content: ''; position: absolute; inset: 1.5px; right: 4px; background: var(--ink); border-radius: 1px; }
+
+  .viewport { flex: 1; overflow: hidden; position: relative; }
+  .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
+  .screen.is-active { display: flex; }
+
+  .nav {
+    flex: 0 0 44px; height: 44px; display: flex; align-items: center; padding: 0 14px;
+    background: #f7f8fa; position: relative; z-index: 3;
+  }
+  .nav__back { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; margin-left: -6px; cursor: pointer; color: var(--ink); }
+  .nav__title { position: absolute; left: 50%; transform: translateX(-50%); font-size: 16px; font-weight: 600; white-space: nowrap; }
+  .nav__right { margin-left: auto; font-size: 12px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
+  .nav__pill { font-size: 10.5px; padding: 2px 7px; border-radius: 999px; background: #EAF3E5; color: var(--green-ink); font-weight: 500; }
+  .nav__pill--pre { background: #FFF4E5; color: #9A5B00; }
+
+  .scroll { flex: 1; overflow-y: auto; padding: 4px 16px 18px; }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  /* ---------- 通用组件 ---------- */
+  .c { background: var(--card); border-radius: 14px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(23,35,61,.05); }
+  .c--flat { box-shadow: none; border: 1px solid var(--line); }
+  .c__hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .c__t { font-size: 13.5px; font-weight: 600; }
+  .c__x { font-size: 11.5px; color: var(--ink-3); }
+  .sec { display: flex; align-items: baseline; justify-content: space-between; padding: 12px 2px 8px; }
+  .sec__t { font-size: 13px; font-weight: 600; color: var(--ink); }
+  .sec__x { font-size: 11px; color: var(--ink-3); }
+
+  .pill { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 500; padding: 2px 7px; border-radius: 6px; }
+  .pill--idle { background: var(--green-bg); color: var(--green-ink); }
+  .pill--busy { background: var(--orange-bg); color: var(--orange-ink); }
+  .pill--repair { background: var(--brand-soft); color: var(--brand-deep); }
+  .pill--off { background: #F2F4F6; color: #6b7280; }
+  .pill .dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+
+  .btn {
+    font: inherit; border: none; background: none; cursor: pointer; display: inline-flex;
+    align-items: center; justify-content: center; gap: 4px;
+  }
+  .btn--primary { height: 42px; border-radius: 10px; background: var(--brand); color: #fff; font-size: 14px; font-weight: 600; width: 100%; }
+  .btn--primary:active { background: #d33a61; }
+  .btn--ghost { height: 42px; border-radius: 10px; background: #fff; border: 1px solid var(--line-2); color: var(--ink); font-size: 14px; font-weight: 500; width: 100%; }
+  .btn--danger { height: 42px; border-radius: 10px; background: var(--danger); color: #fff; font-size: 14px; font-weight: 600; width: 100%; }
+
+  /* ---------- 工作台 ---------- */
+  .stats { display: flex; background: #fff; border-radius: 14px; padding: 13px 4px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(23,35,61,.05); }
+  .stats__i { flex: 1; text-align: center; position: relative; }
+  .stats__i + .stats__i::before { content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 1px; background: var(--line); }
+  .stats__v { font-size: 21px; font-weight: 600; line-height: 1.15; letter-spacing: -.5px; }
+  .stats__v small { font-size: 11px; font-weight: 500; color: var(--ink-3); margin-left: 2px; }
+  .stats__k { font-size: 10.5px; color: var(--ink-3); margin-top: 3px; }
+  .stats__v--busy { color: #B07A0A; }
+  .stats__v--idle { color: var(--green-ink); }
+  .stats__v--repair { color: var(--brand-deep); }
+
+  .st-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .st {
+    border-radius: 12px; border: 1px solid var(--green-line); background: var(--green-bg);
+    padding: 10px 11px 9px; cursor: pointer; position: relative; overflow: hidden; transition: .15s;
+  }
+  .st:active { transform: scale(.985); }
+  .st__top { display: flex; align-items: baseline; justify-content: space-between; }
+  .st__idx { font-size: 17px; font-weight: 600; color: var(--green-ink); letter-spacing: -.3px; }
+  .st__idx small { font-size: 10.5px; font-weight: 500; margin-left: 2px; opacity: .7; }
+  .st__st { font-size: 10px; font-weight: 500; color: var(--green-ink); display: flex; align-items: center; gap: 3px; }
+  .st__st .dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+  .st__sub { font-size: 10.5px; color: #6E9C55; margin-top: 5px; display: flex; align-items: center; gap: 4px; }
+  .st__sub b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .st--busy { background: var(--orange-bg); border-color: var(--orange-line); }
+  .st--busy .st__idx, .st--busy .st__st { color: var(--orange-ink); }
+  .st--busy .st__sub { color: #A87C24; }
+  .st--repair { background: var(--brand-soft); border-color: #F3B6C8; }
+  .st--repair .st__idx, .st--repair .st__st { color: var(--brand-deep); }
+  .st--repair .st__sub { color: #C24A73; }
+
+  .todo { display: flex; align-items: center; gap: 12px; background: #fff; border-radius: 14px; padding: 13px 14px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(23,35,61,.05); cursor: pointer; }
+  .todo__badge { width: 34px; height: 34px; border-radius: 10px; background: var(--brand-soft); color: var(--brand-deep); font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .todo__t { font-size: 13px; font-weight: 600; }
+  .todo__s { font-size: 11px; color: var(--ink-3); margin-top: 2px; }
+  .todo__chev { margin-left: auto; color: var(--ink-3); font-size: 16px; }
+
+  .quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .quick__i { background: #fff; border-radius: 12px; padding: 12px 4px 10px; text-align: center; cursor: pointer; box-shadow: 0 1px 2px rgba(23,35,61,.05); }
+  .quick__ic { width: 30px; height: 30px; margin: 0 auto 6px; border-radius: 9px; background: #F4F6F8; color: var(--ink-2); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+  .quick__t { font-size: 11px; color: var(--ink-2); }
+
+  /* ---------- 工位详情 ---------- */
+  .hero { border-radius: 16px; padding: 15px; background: linear-gradient(135deg, #FDF2F5 0%, #FCEAED 100%); border: 1px solid #F6D3DC; margin-bottom: 12px; }
+  .hero__top { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--brand-deep); font-weight: 500; }
+  .hero__dot { width: 5px; height: 5px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 3px rgba(230,67,110,.14); }
+  .hero__time { font-size: 35px; font-weight: 600; letter-spacing: -1px; color: #2b1a20; font-variant-numeric: tabular-nums; margin: 8px 0 2px; }
+  .hero__time span { font-size: 13px; font-weight: 500; color: #A77; margin-left: 6px; letter-spacing: 0; }
+  .hero__sub { font-size: 11px; color: #A2737F; }
+
+  .kv { display: flex; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: .5px solid var(--line); }
+  .kv:last-child { border-bottom: none; padding-bottom: 0; }
+  .kv:first-child { padding-top: 0; }
+  .kv__k { font-size: 12px; color: var(--ink-3); }
+  .kv__v { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .kv__v .num { font-variant-numeric: tabular-nums; }
+  .mini-btn { font-size: 10.5px; padding: 2px 7px; border-radius: 5px; border: 1px solid var(--line-2); color: var(--ink-2); background: #fff; cursor: pointer; white-space: nowrap; }
+  .mini-btn--brand { border-color: #F3B6C8; color: var(--brand-deep); background: var(--brand-soft); }
+
+  /* 多车牌 */
+  .plate { font-size: 12.5px; font-weight: 600; letter-spacing: .2px; }
+  .plate-tag { font-size: 9.5px; line-height: 1; padding: 3px 5px; border-radius: 4px; background: var(--brand-soft); color: var(--brand-deep); font-weight: 500; }
+  .plate-tag--plain { background: #F2F4F6; color: var(--ink-3); }
+  .plate-list { display: none; margin-top: 2px; padding-top: 4px; border-top: .5px dashed var(--line-2); }
+  .plate-list.open { display: block; }
+  .plate-i { display: flex; align-items: center; gap: 6px; padding: 7px 0; }
+  .plate-i + .plate-i { border-top: .5px solid var(--line); }
+  .plate-i__a { margin-left: auto; display: flex; gap: 6px; }
+  .plate-hint { font-size: 10px; color: var(--ink-3); line-height: 1.65; padding: 5px 0 2px; }
+
+  .acts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .act {
+    background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 4px 10px;
+    display: flex; flex-direction: column; align-items: center; gap: 7px; cursor: pointer; transition: .15s;
+  }
+  .act:active { transform: scale(.97); }
+  .act__ic { width: 32px; height: 32px; border-radius: 10px; background: #F4F6F8; color: #4b5563; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .act__t { font-size: 11.5px; color: var(--ink); font-weight: 500; }
+  .act__s { font-size: 10.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.5; }
+  .act--wide { flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; padding: 12px 14px; }
+  .act--danger { border-color: var(--danger-line); background: var(--danger-bg); }
+  .act--danger .act__ic { background: #FADCD9; color: var(--danger); }
+  .act--danger .act__t { color: #B3241C; }
+  .act--main .act__ic { background: var(--brand-soft); color: var(--brand-deep); }
+  .act--reserved { border-style: dashed; background: #FAFBFC; }
+  .act--reserved .act__t { color: #9AA3AE; }
+  .rsv { display: inline-block; margin-left: 3px; padding: 1px 5px; border-radius: 4px; background: #EEF1F4; color: #8A929C; font-size: 9px; font-weight: 400; vertical-align: 1px; letter-spacing: .2px; }
+
+  .log__i { display: flex; gap: 9px; padding: 7px 0; }
+  .log__dot { width: 6px; height: 6px; border-radius: 50%; background: #D6DAE0; margin-top: 6px; flex: 0 0 auto; }
+  .log__dot--brand { background: var(--brand); }
+  .log__t { font-size: 12px; line-height: 1.5; }
+  .log__s { font-size: 10.5px; color: var(--ink-3); margin-top: 2px; }
+
+  /* ---------- 用户 ---------- */
+  .searchbar { display: flex; gap: 8px; margin-bottom: 12px; }
+  .searchbar__input { flex: 1; height: 40px; border-radius: 10px; background: #fff; border: 1px solid var(--line-2); display: flex; align-items: center; padding: 0 12px; font-size: 13px; color: var(--ink); }
+  .searchbar__input .ph { color: #B9BFC7; }
+  .searchbar__btn { height: 40px; padding: 0 16px; border-radius: 10px; background: var(--brand); color: #fff; font-size: 13px; font-weight: 600; border: none; cursor: pointer; }
+
+  /* 查询方式切换 */
+  .search-card { background: #fff; border-radius: 14px; padding: 12px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(23,35,61,.05); }
+  .search-card .searchbar { margin-bottom: 0; }
+  .mini-seg { display: flex; gap: 6px; margin-bottom: 9px; }
+  .mini-seg button { font: inherit; font-size: 11.5px; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line-2); background: #fff; color: var(--ink-2); cursor: pointer; }
+  .mini-seg button.on { background: var(--brand-soft); border-color: #F3B6C8; color: var(--brand-deep); font-weight: 600; }
+  .searchbar__input--tap { cursor: pointer; }
+  .searchbar__input .pl { font-size: 14px; font-weight: 600; letter-spacing: .5px; }
+  .search-hint { font-size: 10.5px; color: var(--ink-3); margin-top: 8px; line-height: 1.6; }
+  .plate-hit { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-2); background: var(--brand-soft); border-radius: 8px; padding: 7px 9px; margin-bottom: 10px; }
+  .plate-hit b { color: var(--brand-deep); font-weight: 600; letter-spacing: .3px; }
+
+  .field__v--tap { cursor: pointer; }
+  .field__v--tap .pl { font-size: 13px; font-weight: 600; letter-spacing: .4px; }
+
+  .user { display: flex; align-items: center; gap: 11px; }
+  .user__av { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg,#F8C9D6,#E6436E); color: #fff; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .user__n { font-size: 15px; font-weight: 600; }
+  .user__m { font-size: 11px; color: var(--ink-3); margin-top: 3px; }
+
+  .assets { display: flex; padding: 4px 0 2px; }
+  .assets__i { flex: 1; text-align: center; position: relative; }
+  .assets__i + .assets__i::before { content: ''; position: absolute; left: 0; top: 2px; bottom: 2px; width: 1px; background: var(--line); }
+  .assets__v { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .assets__v small { font-size: 10px; font-weight: 500; color: var(--ink-3); margin-left: 1px; }
+  .assets__k { font-size: 10.5px; color: var(--ink-3); margin-top: 3px; }
+
+  .row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: .5px solid var(--line); cursor: pointer; }
+  .row:last-child { border-bottom: none; }
+  .row__ic { width: 28px; height: 28px; border-radius: 8px; background: #F4F6F8; color: #6b7280; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .row__t { font-size: 13px; }
+  .row__s { font-size: 10.5px; color: var(--ink-3); margin-top: 2px; }
+  .row__chev { margin-left: auto; color: #C7CCD2; font-size: 15px; }
+  .row--danger .row__ic { background: #FADCD9; color: var(--danger); }
+  .row--danger .row__t { color: #B3241C; }
+
+  .txt-link { font-size: 11.5px; color: var(--brand); }
+
+  /* ---------- 订单 ---------- */
+  .filters { background: #fff; border-radius: 14px; padding: 13px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(23,35,61,.05); }
+  .field { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .field__k { width: 52px; font-size: 12px; color: var(--ink-3); flex: 0 0 auto; }
+  .field__v { flex: 1; height: 34px; border-radius: 8px; background: #F7F8FA; display: flex; align-items: center; padding: 0 10px; font-size: 12.5px; color: var(--ink); }
+  .field__v .ph { color: #B9BFC7; }
+  .chips { display: flex; gap: 6px; margin-bottom: 10px; }
+  .chip { font-size: 11px; padding: 5px 10px; border-radius: 999px; background: #F4F6F8; color: var(--ink-2); cursor: pointer; }
+  .chip.on { background: var(--brand-soft); color: var(--brand-deep); font-weight: 500; }
+
+  .order { background: #fff; border-radius: 14px; padding: 13px 14px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(23,35,61,.05); }
+  .order__hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .order__shop { font-size: 14px; font-weight: 600; }
+  .order__shop span { font-size: 11.5px; font-weight: 500; color: var(--ink-3); margin-left: 6px; }
+  .order__body { display: flex; gap: 8px; }
+  .order__col { flex: 1; }
+  .order__kv { font-size: 11.5px; color: var(--ink-3); line-height: 1.9; }
+  .order__kv b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .order__fee { font-size: 17px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+  .order__fee small { font-size: 11px; color: var(--ink-3); font-weight: 400; display: block; margin-top: 2px; }
+  .order__ft { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: .5px solid var(--line); }
+  .order__link { font-size: 11px; color: var(--ink-2); border: 1px solid var(--line-2); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+  .order__link--brand { color: var(--brand-deep); border-color: #F3B6C8; background: var(--brand-soft); }
+  .order__more { margin-left: auto; font-size: 11px; color: var(--ink-3); }
+
+  /* ---------- 订单详情 ---------- */
+  .hero--order { background: linear-gradient(135deg,#F3F8F1 0%,#E9F3E3 100%); border-color: var(--green-line); }
+  .hero--order .hero__top { color: var(--green-ink); }
+  .hero--order .hero__dot { background: var(--green-ink); box-shadow: 0 0 0 3px rgba(47,122,18,.12); }
+  .hero--order .hero__time { color: #1F2E19; font-size: 33px; }
+  .hero--order .hero__sub { color: #6E8B5B; }
+  .hero--busy { background: linear-gradient(135deg,#FFF9EE 0%,#FFF3DC 100%); border-color: var(--orange-line); }
+  .hero--busy .hero__top { color: var(--orange-ink); }
+  .hero--busy .hero__dot { background: var(--orange-ink); box-shadow: 0 0 0 3px rgba(143,94,0,.12); }
+  .hero--busy .hero__time { color: #3A2A0C; }
+  .hero--busy .hero__sub { color: #97803F; }
+
+  .fee { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; font-size: 12.5px; color: var(--ink-2); }
+  .fee em { font-style: normal; font-size: 10.5px; color: var(--ink-3); margin-left: 6px; }
+  .fee b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .fee--total { border-top: .5px solid var(--line); margin-top: 5px; padding-top: 11px; }
+  .fee--total b { font-size: 17px; font-weight: 600; }
+  .fee--off b { color: var(--ink-3); font-weight: 400; }
+
+  .screen-bar { flex: 0 0 auto; display: flex; gap: 8px; padding: 10px 16px 16px; background: #fff; border-top: .5px solid var(--line); }
+  .screen-bar .btn { flex: 1; height: 42px; }
+  .kv__v--wrap { flex: 1; flex-wrap: wrap; justify-content: flex-end; text-align: right; gap: 5px; }
+
+  /* ---------- 停车缴费 ---------- */
+  .park-shop { display: flex; align-items: center; gap: 9px; background: #fff; border-radius: 12px; padding: 11px 13px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(23,35,61,.05); }
+  .park-shop__ic { width: 30px; height: 30px; border-radius: 9px; background: #EAF3E5; color: var(--green-ink); font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .park-shop__t { font-size: 12.5px; font-weight: 600; }
+  .park-shop__s { font-size: 10px; color: var(--ink-3); margin-top: 2px; }
+  .park-shop__x { margin-left: auto; font-size: 10px; padding: 3px 7px; border-radius: 5px; background: #F4F6F8; color: var(--ink-2); }
+
+  .park-plate { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 13px; border: 1px dashed #D6DBE2; border-radius: 11px; background: #FBFCFD; cursor: pointer; margin-bottom: 12px; }
+  .park-plate--set { border-style: solid; border-color: #F3B6C8; background: var(--brand-soft); }
+  .park-plate__t { font-size: 12.5px; font-weight: 600; }
+  .park-plate__s { font-size: 10px; color: var(--ink-3); margin-top: 3px; line-height: 1.5; }
+  .park-plate__v { font-size: 18px; font-weight: 600; letter-spacing: 1px; color: var(--brand-deep); }
+  .park-plate__v.ph { font-size: 12.5px; font-weight: 500; letter-spacing: 0; color: #B9BFC7; }
+
+  .park-fee { display: flex; align-items: flex-end; justify-content: space-between; padding: 2px 0 6px; }
+  .park-fee__v { font-size: 31px; font-weight: 600; letter-spacing: -1px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .park-fee__v small { font-size: 14px; font-weight: 500; margin-right: 2px; letter-spacing: 0; }
+  .park-fee__r { text-align: right; font-size: 10.5px; color: var(--ink-3); line-height: 1.7; }
+  .park-empty { text-align: center; padding: 22px 10px 16px; }
+  .park-empty__ic { width: 44px; height: 44px; border-radius: 14px; background: #F4F6F8; color: #B9BFC7; font-size: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; }
+  .park-empty__t { font-size: 12.5px; color: var(--ink-2); font-weight: 500; }
+  .park-empty__s { font-size: 10.5px; color: var(--ink-3); margin-top: 5px; line-height: 1.6; }
+
+  /* ---------- 车牌键盘 ---------- */
+  .pk {
+    position: absolute; left: 0; right: 0; bottom: -100%; background: #F2F4F7;
+    border-radius: 18px 18px 0 0; padding: 6px 14px 14px; transition: bottom .25s ease; z-index: 22;
+    box-shadow: 0 -8px 26px rgba(23,35,61,.12);
+  }
+  .mask.show .pk { bottom: 0; }
+  .pk__bar { width: 34px; height: 4px; border-radius: 2px; background: #DDE1E6; margin: 4px auto 10px; }
+  .pk__hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+  .pk__t { font-size: 15px; font-weight: 600; }
+  .pk__x { font-size: 11.5px; color: var(--ink-3); cursor: pointer; }
+  .pk__display { display: flex; align-items: center; gap: 4px; background: #fff; border: 1px solid var(--line-2); border-radius: 11px; padding: 7px 8px; }
+  .pk__cell { flex: 1; height: 42px; border-radius: 7px; background: #F7F8FA; border: 1px solid transparent; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 600; letter-spacing: .5px; color: var(--ink); }
+  .pk__cell--prov { flex: 0 0 38px; }
+  .pk__cell--dot { flex: 0 0 9px; background: none; color: #B0B6BE; font-size: 17px; font-weight: 400; }
+  .pk__cell--on { background: var(--brand-soft); border-color: var(--brand); color: var(--brand-deep); }
+  .pk__cell--off { display: none; }
+  .pk__meta { display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(--ink-3); padding: 7px 2px 0; }
+  .pk__len { color: var(--brand-deep); cursor: pointer; }
+  .pk__quick { display: flex; align-items: center; gap: 5px; padding: 8px 0 0; }
+  .pk__quick-t { font-size: 10px; color: var(--ink-3); flex: 0 0 auto; }
+  .pk__chip { font: inherit; font-size: 10.5px; padding: 3px 7px; border-radius: 6px; border: 1px solid var(--line-2); background: #fff; color: var(--ink-2); cursor: pointer; letter-spacing: .2px; }
+  .pk__tabs { display: flex; gap: 6px; margin: 9px 0 7px; }
+  .pk__tabs button { flex: 1; height: 29px; border-radius: 8px; border: none; background: #E4E7EB; color: var(--ink-2); font: inherit; font-size: 11.5px; cursor: pointer; }
+  .pk__tabs button.on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(23,35,61,.08); }
+  .pk__grid { display: grid; }
+  .pk__grid--prov { grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .pk__grid--char { grid-template-columns: repeat(9, 1fr); gap: 4px; }
+  .pk__key { height: 39px; border-radius: 6px; border: none; background: #fff; color: var(--ink); font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; box-shadow: 0 1px 0 rgba(23,35,61,.10); }
+  .pk__key:active { background: #E9ECEF; }
+  .pk__grid--prov .pk__key { height: 37px; font-size: 14px; }
+  .pk__key--fn { background: #E1E5E9; font-size: 12px; color: var(--ink-2); box-shadow: none; }
+  .pk__key--ok { background: var(--brand); color: #fff; font-size: 13px; font-weight: 600; box-shadow: none; }
+  .pk__key--ok:disabled { opacity: .42; }
+  .pk__key--dis { color: #C7CCD2; }
+  .pk__ft { display: flex; gap: 8px; margin-top: 9px; }
+  .pk__ft .pk__key { flex: 1; height: 39px; }
+
+  /* ---------- 登录 ---------- */
+  .login { padding: 8px 20px 0; }
+  .login__mark { width: 72px; height: 72px; margin: 12px auto 15px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 22px rgba(230,67,110,.24); }
+  .login__mark img { display: block; width: 100%; height: 100%; }
+  .login__t { font-size: 20px; font-weight: 600; text-align: center; letter-spacing: .6px; }
+  .login__s { font-size: 11px; color: var(--ink-3); text-align: center; margin-top: 6px; line-height: 1.7; }
+  .login__box { background: #fff; border-radius: 14px; padding: 15px; margin-top: 20px; box-shadow: 0 1px 2px rgba(23,35,61,.05); }
+  .login__step { display: flex; align-items: center; gap: 7px; margin-bottom: 11px; }
+  .login__no { width: 17px; height: 17px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-deep); font-size: 9.5px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .login__no--off { background: #F0F2F5; color: #B0B6BE; }
+  .login__st { font-size: 12.5px; font-weight: 600; }
+  .login__st--off { color: var(--ink-3); font-weight: 500; }
+  .login__field { display: flex; align-items: center; gap: 8px; height: 42px; border-radius: 9px; background: #F7F8FA; padding: 0 11px; margin-bottom: 8px; }
+  .login__field span { font-size: 11.5px; color: var(--ink-3); flex: 0 0 52px; }
+  .login__field b { font-size: 13px; font-weight: 500; }
+  .login__field .ph { font-size: 11.5px; color: #B9BFC7; font-weight: 400; }
+  .login__code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 3px; font-size: 15px; }
+  .login__hint { font-size: 10px; color: #B0B6BE; line-height: 1.7; margin-top: 9px; }
+  .login__foot { font-size: 9.5px; color: #B0B6BE; text-align: center; line-height: 1.8; margin-top: 14px; }
+  .login__switch { font-size: 10.5px; color: var(--brand-deep); cursor: pointer; text-align: center; margin-top: 10px; }
+
+  /* ---------- 审核 ---------- */
+  .tabs { display: flex; gap: 18px; padding: 2px 2px 12px; border-bottom: .5px solid var(--line-2); margin-bottom: 12px; }
+  .tab { font-size: 13px; color: var(--ink-3); position: relative; padding-bottom: 7px; cursor: pointer; }
+  .tab.on { color: var(--ink); font-weight: 600; }
+  .tab.on::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%); bottom: 0; width: 18px; height: 2.5px; border-radius: 2px; background: var(--brand); }
+  .tab em { font-style: normal; font-size: 10px; background: var(--brand); color: #fff; border-radius: 8px; padding: 1px 4px; margin-left: 3px; vertical-align: 1px; }
+
+  .review { background: #fff; border-radius: 14px; padding: 13px 14px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(23,35,61,.05); }
+  .review__hd { display: flex; align-items: center; justify-content: space-between; }
+  .review__id { font-size: 12.5px; font-weight: 600; }
+  .review__meta { font-size: 11px; color: var(--ink-3); line-height: 1.85; margin-top: 7px; }
+  .review__meta b { color: var(--ink); font-weight: 500; }
+  .imgs { display: flex; gap: 6px; margin-top: 10px; }
+  .img { width: 72px; height: 72px; border-radius: 9px; background: linear-gradient(150deg,#E8EDF2,#D5DDE6); position: relative; overflow: hidden; cursor: pointer; }
+  .img::before { content: ''; position: absolute; left: 12px; right: 12px; bottom: -10px; height: 38px; background: rgba(255,255,255,.55); transform: rotate(-8deg); }
+  .img::after { content: '现场照片'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 9.5px; color: #7C8794; }
+  .img__more { width: 72px; height: 72px; border-radius: 9px; background: #F4F6F8; display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--ink-3); }
+  .review__ft { display: flex; gap: 8px; margin-top: 11px; }
+  .review__ft .btn { flex: 1; height: 34px; border-radius: 9px; font-size: 12.5px; font-weight: 600; }
+  .btn--ok { background: var(--green-bg); color: var(--green-ink); border: 1px solid var(--green-line); }
+  .btn--no { background: #fff; color: var(--ink-2); border: 1px solid var(--line-2); }
+
+  /* ---------- 我的 ---------- */
+  .me { display: flex; align-items: center; gap: 12px; padding: 6px 4px 16px; }
+  .me__av { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg,#F8C9D6,#E6436E); color: #fff; font-size: 17px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .me__n { font-size: 17px; font-weight: 600; }
+  .me__r { font-size: 11.5px; color: var(--ink-3); margin-top: 4px; display: flex; align-items: center; gap: 6px; }
+  .role { font-size: 9.5px; padding: 1.5px 6px; border-radius: 4px; background: var(--brand-soft); color: var(--brand-deep); font-weight: 500; }
+  .placeholder { border: 1px dashed #D6DBE2; border-radius: 14px; padding: 14px; background: #FBFCFD; }
+  .placeholder__hd { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+  .placeholder__hd i { font-style: normal; font-size: 9.5px; padding: 2px 6px; border-radius: 4px; background: #F0F2F5; color: var(--ink-3); font-weight: 500; }
+  .placeholder__l { font-size: 11.5px; color: var(--ink-3); line-height: 1.95; margin-top: 8px; }
+  .placeholder__n { font-size: 10.5px; color: #B0B6BE; line-height: 1.7; margin-top: 6px; }
+
+  .group { background: #fff; border-radius: 14px; padding: 2px 14px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(23,35,61,.05); }
+  .group__label { font-size: 11px; color: var(--ink-3); padding: 11px 2px 0; }
+
+  /* ---------- 门店工具 / 查询分段 ---------- */
+  .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tool { background: #fff; border-radius: 12px; padding: 12px; display: flex; gap: 10px; align-items: flex-start; box-shadow: 0 1px 2px rgba(23,35,61,.05); cursor: pointer; }
+  .tool:active { transform: scale(.985); }
+  .tool__ic { width: 32px; height: 32px; border-radius: 9px; background: #F4F6F8; color: #4b5563; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .tool__t { font-size: 12.5px; font-weight: 600; line-height: 1.3; }
+  .tool__s { font-size: 10.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.5; }
+  .scope-note { font-size: 10.5px; color: var(--ink-3); line-height: 1.7; padding: 9px 2px 0; }
+  .scope-note b { color: var(--ink-2); font-weight: 500; }
+
+  .seg { display: flex; background: #EAEDF1; border-radius: 10px; padding: 3px; margin-bottom: 12px; }
+  .seg button { flex: 1; height: 31px; border: none; background: none; font: inherit; font-size: 12.5px; color: var(--ink-2); border-radius: 7px; cursor: pointer; }
+  .seg button.on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(23,35,61,.08); }
+
+  /* ---------- 底部悬浮门店选择 ---------- */
+  .floatbar {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 8; display: none;
+    padding: 22px 16px 12px; pointer-events: none;
+    background: linear-gradient(to top, #f7f8fa 52%, rgba(247,248,250,0));
+  }
+  .floatbar.show { display: block; }
+  .floatbar__btn {
+    pointer-events: auto; display: flex; align-items: center; gap: 9px; height: 46px;
+    padding: 0 13px 0 10px; border-radius: 999px; background: rgba(255,255,255,.97);
+    border: 1px solid var(--line-2); box-shadow: 0 8px 22px rgba(23,35,61,.12);
+    cursor: pointer; transition: .15s;
+  }
+  .floatbar__btn:active { transform: scale(.985); }
+  .floatbar__ic {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--brand-soft); color: var(--brand-deep);
+    font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  }
+  .floatbar__n { font-size: 13.5px; font-weight: 600; letter-spacing: -.2px; }
+  .floatbar__s { font-size: 10px; padding: 2px 6px; border-radius: 5px; background: #F4F6F8; color: var(--ink-2); }
+  .floatbar__x { margin-left: auto; display: flex; align-items: center; gap: 3px; font-size: 11px; color: var(--ink-3); }
+  .floatbar__x svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .scroll--dock { padding-bottom: 84px; }
+
+  /* ---------- 毛巾柜柜门 ---------- */
+  .door-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+  .door-hd__t { font-size: 12px; color: var(--ink-2); font-weight: 500; }
+  .door-hd__a { font-size: 11px; color: var(--brand-deep); cursor: pointer; }
+  .door-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+  .door {
+    height: 46px; border-radius: 9px; border: 1px solid var(--line-2); background: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+    font: inherit; cursor: pointer; transition: .12s;
+  }
+  .door:active { transform: scale(.95); }
+  .door__n { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); line-height: 1; }
+  .door__s { font-size: 8px; color: #B0B6BE; letter-spacing: .2px; }
+  .door.on { border-color: var(--brand); background: var(--brand-soft); }
+  .door.on .door__n, .door.on .door__s { color: var(--brand-deep); }
+  .door--used { background: #F4F6F8; border-color: #F0F2F4; cursor: not-allowed; }
+  .door--used .door__n { color: #C2C8CF; }
+  .door--used .door__s { color: #C2C8CF; }
+  .door-legend { display: flex; gap: 14px; margin-top: 11px; font-size: 10px; color: var(--ink-3); }
+  .door-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 4px; vertical-align: -1px; border: 1px solid #CBD2DA; }
+  .door-bar { display: flex; align-items: center; margin-top: 11px; padding-top: 11px; border-top: .5px solid var(--line); font-size: 11.5px; color: var(--ink-2); }
+  .door-bar b { color: var(--brand-deep); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Tabbar ---------- */
+  .tabbar {
+    flex: 0 0 56px; height: 56px; background: rgba(255,255,255,.96); border-top: .5px solid var(--line);
+    display: flex; align-items: center; padding: 0 6px 2px; backdrop-filter: blur(8px);
+  }
+  .tb { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #9AA1A9; cursor: pointer; position: relative; }
+  .tb__dot { position: absolute; top: -3px; left: 50%; margin-left: 6px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 8px; background: var(--brand); color: #fff; font-size: 9px; line-height: 15px; text-align: center; font-weight: 500; }
+  .tb svg { width: 21px; height: 21px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .tb__t { font-size: 9.5px; }
+  .tb.on { color: var(--brand); }
+
+  /* ---------- 弹层 ---------- */
+  .mask { position: absolute; inset: 0; background: rgba(20,24,30,.42); display: none; z-index: 20; }
+  .mask.show { display: block; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: -100%; background: #fff;
+    border-radius: 18px 18px 0 0; padding: 6px 18px 20px; transition: bottom .25s ease; z-index: 21;
+  }
+  .mask.show .sheet { bottom: 0; }
+  .sheet__bar { width: 34px; height: 4px; border-radius: 2px; background: #E6E9ED; margin: 4px auto 12px; }
+  .sheet__t { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .sheet__s { font-size: 11.5px; color: var(--ink-3); line-height: 1.7; }
+  .sheet__body { margin: 14px 0 16px; }
+  .amount { display: flex; align-items: center; gap: 6px; height: 48px; border-bottom: 1.5px solid var(--line-2); }
+  .amount__cur { font-size: 20px; font-weight: 600; color: var(--ink-2); }
+  .amount__v { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .amount__ph { font-size: 24px; color: #C7CCD2; font-weight: 500; }
+  .amts { display: flex; gap: 7px; margin-top: 12px; }
+  .amt { flex: 1; height: 34px; border-radius: 8px; border: 1px solid var(--line-2); background: #fff; font-size: 12.5px; color: var(--ink-2); cursor: pointer; }
+  .amt.on { border-color: #F3B6C8; background: var(--brand-soft); color: var(--brand-deep); font-weight: 600; }
+  .sheet__tip { font-size: 11px; color: #B0B6BE; line-height: 1.6; margin-top: 12px; }
+  .field-note { font-size: 11.5px; color: var(--ink-3); margin: 14px 0 7px; }
+  .preset-list { display: flex; flex-direction: column; gap: 7px; }
+  .preset { height: 38px; border: 1px solid var(--line-2); border-radius: 9px; background: #fff; font: inherit; font-size: 12.5px; color: var(--ink); text-align: left; padding: 0 12px; cursor: pointer; }
+  .preset.on { border-color: #F3B6C8; background: var(--brand-soft); color: var(--brand-deep); font-weight: 600; }
+  .sheet__textarea { width: 100%; height: 72px; border-radius: 9px; border: 1px solid var(--line-2); background: #F9FAFB; padding: 10px 11px; font: inherit; font-size: 12.5px; resize: none; outline: none; color: var(--ink); }
+  .sheet__textarea::placeholder { color: #B9BFC7; }
+  .sheet__ft { display: flex; gap: 10px; }
+
+  .dialog { position: absolute; left: 34px; right: 34px; top: 50%; transform: translateY(-50%) scale(.96); background: #fff; border-radius: 16px; padding: 22px 18px 16px; z-index: 21; text-align: center; opacity: 0; transition: .2s; }
+  .mask.show .dialog { opacity: 1; transform: translateY(-50%) scale(1); }
+  .dialog__ic { width: 42px; height: 42px; border-radius: 50%; background: var(--danger-bg); color: var(--danger); font-size: 20px; font-weight: 600; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+  .dialog--info .dialog__ic { background: var(--brand-soft); color: var(--brand-deep); }
+  .dialog--info .dialog__ft .btn--danger { background: var(--brand); }
+  .dialog__t { font-size: 16px; font-weight: 600; }
+  .dialog__c { font-size: 12px; color: var(--ink-2); line-height: 1.75; margin: 8px 0 18px; }
+  .dialog__ft { display: flex; gap: 10px; }
+  .dialog__ft .btn { flex: 1; height: 40px; border-radius: 10px; font-size: 14px; font-weight: 600; }
+  .dialog__ft .btn--ghost { background: #F4F6F8; border: none; color: var(--ink-2); }
+
+  .toast {
+    position: absolute; left: 50%; top: 46%; transform: translate(-50%, -6px);
+    background: rgba(31,35,41,.88); color: #fff; font-size: 12.5px; padding: 9px 16px; border-radius: 10px;
+    max-width: 250px; text-align: center; line-height: 1.55; opacity: 0; pointer-events: none;
+    transition: .2s; z-index: 30;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---------- 右侧说明 ---------- */
+  .side { flex: 1; min-width: 0; }
+  .panel { background: #fff; border-radius: 16px; padding: 22px 24px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(23,35,61,.06); }
+  .panel > h2 { font-size: 15px; font-weight: 600; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .panel > h2 i { width: 3px; height: 14px; border-radius: 2px; background: var(--brand); display: block; }
+  .panel > .desc { font-size: 12px; color: var(--ink-3); margin: 0 0 16px; line-height: 1.75; }
+
+  .ia { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .ia__i { border: 1px solid var(--line); border-radius: 11px; padding: 11px 12px; background: #FCFCFD; }
+  .ia__n { font-size: 12.5px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .ia__n em { font-style: normal; width: 16px; height: 16px; border-radius: 5px; background: var(--brand-soft); color: var(--brand-deep); font-size: 9.5px; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+  .ia__d { font-size: 10.5px; color: var(--ink-3); line-height: 1.65; margin-top: 5px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 11px; font-weight: 500; color: var(--ink-3); background: #FAFBFC; }
+  td b { font-weight: 600; }
+  td .muted { color: var(--ink-3); font-size: 11px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; background: #F5F6F8; padding: 1.5px 5px; border-radius: 4px; color: #3d4653; white-space: nowrap; display: inline-block; max-width: 100%; }
+  .codeblock { margin: 0; padding: 13px 15px; background: #F7F8FA; border: 1px solid var(--line); border-radius: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; line-height: 1.62; color: #3d4653; overflow-x: auto; white-space: pre; }
+  .ok { color: var(--green-ink); }
+  .new { color: var(--brand-deep); }
+  .chg { color: #9A5B00; }
+
+  .notes { margin: 0; padding: 0; list-style: none; }
+  .notes li { position: relative; padding: 0 0 12px 20px; font-size: 12.5px; line-height: 1.75; color: #3d4653; }
+  .notes li::before { content: ''; position: absolute; left: 2px; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: #F3B6C8; }
+  .notes li b { color: var(--ink); font-weight: 600; }
+
+  .flow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 11px; color: var(--ink-2); }
+  .flow span { background: #F6F7F9; border-radius: 6px; padding: 5px 9px; }
+  .flow i { color: #C7CCD2; font-style: normal; }
+
+  @media (max-width: 980px) {
+    body { padding: 24px 16px 48px; }
+    .layout { flex-direction: column; align-items: center; }
+    .stage { position: static; }
+    .side { width: 100%; }
+    .ia { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="hd">
+    <h1>焕车运维 · 管理员小程序</h1>
+    <p>按「作用域」重新切分：门店相关的只留在现场页，跨店的订单/用户/审核独立成页，切换门店不会影响它们。设备操作改为「能力配置」驱动，不同门店/工位可以有不同的操作项。登录与 C 端分离，走「微信授权 + 手机号 / 授权码」两步绑定，接口统一收口到 <code>/admin/v1</code>。</p>
+    <div class="tags">
+      <span class="tag main">独立小程序 · 独立账号体系</span>
+      <span class="tag">两步登录 · openid + 8 位授权码</span>
+      <span class="tag">作用域：全局 / 门店 / 工位</span>
+      <span class="tag">能力配置驱动 UI</span>
+      <span class="tag">车牌键盘统一组件</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- ================= 手机 ================= -->
+    <div class="stage">
+      <div class="screen-switch" id="switch">
+        <button data-go="login">登录（两步）</button>
+        <button class="on" data-go="workbench">现场</button>
+        <button data-go="station">工位详情</button>
+        <button data-go="parking">停车缴费</button>
+        <button data-go="order">查询 · 订单</button>
+        <button data-go="order-detail">订单详情</button>
+        <button data-go="user">查询 · 用户</button>
+        <button data-go="review">审核</button>
+        <button data-go="me">我的</button>
+      </div>
+
+      <div class="phone">
+        <div class="phone__inner">
+          <div class="statusbar">
+            <span>9:41</span>
+            <div class="statusbar__right"><i></i><i></i><i></i><span class="statusbar__bat"></span></div>
+          </div>
+
+          <div class="viewport">
+            <!-- ---------- 登录（两步） ---------- -->
+            <section class="screen" data-screen="login">
+              <div class="scroll">
+                <div class="login">
+                  <div class="login__mark">
+                    <img src="logo/logo-mark.svg" alt="焕车掌柜">
+                  </div>
+                  <div class="login__t">焕车掌柜</div>
+                  <div class="login__s">门店运维 · 管理端</div>
+
+                  <div class="login__box">
+                    <div class="login__step">
+                      <span class="login__no" id="stepNo1">1</span>
+                      <span class="login__st" id="stepT1">微信授权登录</span>
+                      <span class="nav__pill" id="stepPill" style="margin-left:auto;display:none">已授权</span>
+                    </div>
+                    <button class="btn btn--primary" id="wxBtn" onclick="wxAuth()">微信一键授权</button>
+                    <div class="login__hint">仅用于识别当前微信身份，不读取昵称、头像与手机号。</div>
+                  </div>
+
+                  <div class="login__box" id="bindBox" style="opacity:.45;pointer-events:none">
+                    <div class="login__step">
+                      <span class="login__no login__no--off" id="stepNo2">2</span>
+                      <span class="login__st login__st--off" id="stepT2">绑定管理员账号</span>
+                    </div>
+                    <div class="login__field"><span>手机号</span><b>138 0013 8000</b></div>
+                    <div class="login__field"><span>授权码</span><b class="login__code">K7mQ2xRb</b></div>
+                    <button class="btn btn--primary" style="margin-top:4px" onclick="toast('登录成功，正在进入现场页')">登录</button>
+                    <div class="login__hint">授权码由总部在后台创建账号时生成，8 位数字与大小写字母组合，首次绑定后失效。</div>
+                  </div>
+
+                  <div class="login__foot">仅限已开通权限的门店员工与加盟商管理员<br>账号问题请联系总部运营</div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ---------- 工作台 ---------- -->
+            <section class="screen is-active" data-screen="workbench">
+              <div class="nav">
+                <div class="nav__title">现场</div>
+                <div class="nav__right"><span class="nav__pill" id="envPill">生产</span></div>
+              </div>
+              <div class="scroll scroll--dock">
+                <div class="stats">
+                  <div class="stats__i"><div class="stats__v stats__v--busy">3<small>个</small></div><div class="stats__k">使用中</div></div>
+                  <div class="stats__i"><div class="stats__v stats__v--idle">2<small>个</small></div><div class="stats__k">空闲</div></div>
+                  <div class="stats__i"><div class="stats__v stats__v--repair">1<small>个</small></div><div class="stats__k">维护中</div></div>
+                </div>
+
+                <div class="sec"><span class="sec__t">工位状态</span><span class="sec__x">10:24 刷新</span></div>
+                <div class="st-grid">
+                  <div class="st" onclick="go('station')">
+                    <div class="st__top"><div class="st__idx">1<small>号</small></div><div class="st__st"><span class="dot"></span>空闲</div></div>
+                    <div class="st__sub">等待使用</div>
+                  </div>
+                  <div class="st st--busy">
+                    <div class="st__top"><div class="st__idx">2<small>号</small></div><div class="st__st"><span class="dot"></span>使用中</div></div>
+                    <div class="st__sub">已洗 <b>00:23:41</b> · 尾号 8000</div>
+                  </div>
+                  <div class="st st--busy" onclick="go('station')">
+                    <div class="st__top"><div class="st__idx">3<small>号</small></div><div class="st__st"><span class="dot"></span>使用中</div></div>
+                    <div class="st__sub">已洗 <b>01:02:10</b> · 尾号 2311</div>
+                  </div>
+                  <div class="st st--repair">
+                    <div class="st__top"><div class="st__idx">4<small>号</small></div><div class="st__st"><span class="dot"></span>维护中</div></div>
+                    <div class="st__sub">10:02 由王小明设置</div>
+                  </div>
+                  <div class="st">
+                    <div class="st__top"><div class="st__idx">5<small>号</small></div><div class="st__st"><span class="dot"></span>空闲</div></div>
+                    <div class="st__sub">等待使用</div>
+                  </div>
+                  <div class="st st--busy">
+                    <div class="st__top"><div class="st__idx">6<small>号</small></div><div class="st__st"><span class="dot"></span>使用中</div></div>
+                    <div class="st__sub">已洗 <b>00:08:52</b> · 尾号 6677</div>
+                  </div>
+                </div>
+
+                <div class="sec" style="margin-top:6px"><span class="sec__t">门店工具</span><span class="sec__x">随门店切换</span></div>
+                <div class="tools" style="grid-template-columns:1fr">
+                  <div class="tool" onclick="go('parking')">
+                    <div class="tool__ic" style="background:#EAF3E5;color:#2F7A12">停</div>
+                    <div><div class="tool__t">停车缴费</div><div class="tool__s">按车牌代缴 · 各门店可配不同停车系统</div></div>
+                  </div>
+                </div>
+                <p class="scope-note">门店工具由该门店的<b>能力配置</b>下发，未启用的门店不显示。设备类操作（通风、毛巾柜）在工位详情里。</p>
+              </div>
+            </section>
+
+            <!-- ---------- 工位详情 ---------- -->
+            <section class="screen" data-screen="station">
+              <div class="nav">
+                <div class="nav__back" onclick="go('workbench')">‹</div>
+                <div class="nav__title">3 号工位</div>
+                <div class="nav__right">更多</div>
+              </div>
+              <div class="scroll">
+                <div class="hero">
+                  <div class="hero__top"><span class="hero__dot"></span>使用中 · 已洗 01:02:10</div>
+                  <div class="hero__time">01:02:10</div>
+                  <div class="hero__sub">滨江洗车中心 · 开始于 10:24</div>
+                </div>
+
+                <div class="c">
+                  <div class="c__hd"><span class="c__t">当前用户</span><span class="c__x">订单 #202610180324</span></div>
+                  <div class="kv"><span class="kv__k">手机号</span><span class="kv__v">138****8000 <button class="mini-btn" onclick="toast('已复制手机号')">复制</button><button class="mini-btn mini-btn--brand" onclick="toast('正在拨打 138****8000')">拨打</button></span></div>
+                  <div class="kv" style="align-items:flex-start">
+                    <span class="kv__k" style="padding-top:3px">车牌</span>
+                    <span class="kv__v" style="flex:1;flex-wrap:wrap;justify-content:flex-end">
+                      <span class="plate">沪A·D2311</span>
+                      <span class="plate-tag">本单</span>
+                      <button class="mini-btn" onclick="copyPlate('沪A·D2311')">复制</button>
+                      <button class="mini-btn mini-btn--brand" id="plateMoreBtn" onclick="togglePlates()">共 3 个 ⌄</button>
+                    </span>
+                  </div>
+                  <div class="plate-list" id="plateList">
+                    <div class="plate-i">
+                      <span class="plate">沪A·D2311</span><span class="plate-tag">本单</span>
+                      <span class="plate-i__a">
+                        <button class="mini-btn" onclick="copyPlate('沪A·D2311')">复制</button>
+                        <button class="mini-btn" onclick="parkFromOrder('沪A·D2311')">缴停车费</button>
+                      </span>
+                    </div>
+                    <div class="plate-i">
+                      <span class="plate">沪B·8K221</span><span class="plate-tag plate-tag--plain">账户</span>
+                      <span class="plate-i__a">
+                        <button class="mini-btn" onclick="copyPlate('沪B·8K221')">复制</button>
+                        <button class="mini-btn" onclick="parkFromOrder('沪B·8K221')">缴停车费</button>
+                      </span>
+                    </div>
+                    <div class="plate-i">
+                      <span class="plate">沪C·1F908</span><span class="plate-tag plate-tag--plain">账户</span>
+                      <span class="plate-i__a">
+                        <button class="mini-btn" onclick="copyPlate('沪C·1F908')">复制</button>
+                        <button class="mini-btn" onclick="toast('按 沪C·1F908 代缴停车费')">缴停车费</button>
+                      </span>
+                    </div>
+                    <div class="plate-hint">开单时只记录一个车牌，其余为账户下绑定的车辆；代缴停车费前请核对现场车辆。</div>
+                  </div>
+                  <div class="kv"><span class="kv__k">账户余额</span><span class="kv__v num">¥42.50</span></div>
+                  <div class="kv"><span class="kv__k">团购券</span><span class="kv__v">2 张 <button class="mini-btn" onclick="toast('查看可用券明细')">查看</button></span></div>
+                </div>
+
+                <div class="sec"><span class="sec__t">基础操作</span><span class="sec__x">所有门店通用</span></div>
+                <div class="acts" style="grid-template-columns:repeat(2,1fr)">
+                  <div class="act act--main" onclick="toast('已发送开门指令')"><div class="act__ic">开</div><div class="act__t">开门</div></div>
+                  <div class="act" onclick="openSheet('voice')"><div class="act__ic">播</div><div class="act__t">语音播报</div></div>
+                  <div class="act act--danger" onclick="confirmDanger('结束当前订单？','将按当前时长结算并立即关单，用户端同步结束。该操作不可撤回。','确认结束','已结束订单，正在结算')"><div class="act__ic">停</div><div class="act__t">结束订单</div></div>
+                  <div class="act" onclick="confirmDanger('将 3 号工位设为维护中？','工位立即从用户端下线，进行中的订单不受影响。','设为维护','已设为维护中')"><div class="act__ic">维</div><div class="act__t">设为维护</div></div>
+                </div>
+
+                <div class="sec"><span class="sec__t">扩展设备</span><span class="sec__x">能力配置驱动 · 无配置不显示</span></div>
+                <div class="acts" style="grid-template-columns:repeat(2,1fr)">
+                  <div class="act" onclick="toast('已开启通风，5 分钟后自动关闭')">
+                    <div class="act__ic" style="background:#E8F5F2;color:#0F7B6C">风</div>
+                    <div class="act__t">通风全开</div>
+                  </div>
+                  <div class="act act--reserved" onclick="toast('毛巾柜为预留能力，本期不接入')">
+                    <div class="act__ic" style="background:#F4F6F8;color:#9AA3AE">巾</div>
+                    <div class="act__t">毛巾柜全开<span class="rsv">预留</span></div>
+                  </div>
+                </div>
+                <div class="acts" style="grid-template-columns:1fr;margin-top:8px">
+                  <div class="act act--wide act--reserved" onclick="toast('毛巾柜为预留能力，本期不接入')">
+                    <div class="act__ic" style="background:#F4F6F8;color:#9AA3AE">柜</div>
+                    <div style="text-align:left"><div class="act__t">指定柜门开启<span class="rsv">预留</span></div><div class="act__s">共 20 扇柜门 · 可多选后一次开启</div></div>
+                    <span style="margin-left:auto;color:#C7CCD2;font-size:15px">›</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ---------- 查询 · 用户 ---------- -->
+            <section class="screen" data-screen="user">
+              <div class="nav">
+                <div class="nav__title">查询</div>
+              </div>
+              <div class="scroll">
+                <div class="seg"><button onclick="go('order')">订单</button><button class="on" onclick="go('user')">用户</button></div>
+                <p class="scope-note" style="padding:0 2px 10px">按手机号或车牌号跨店查人，含各门店的订单与资产流水。</p>
+
+                <div class="search-card">
+                  <div class="mini-seg" id="userMode">
+                    <button class="on" data-mode="phone">手机号</button>
+                    <button data-mode="plate">车牌号</button>
+                  </div>
+                  <div class="searchbar">
+                    <div class="searchbar__input" id="userInput">
+                      <span id="userInputText">138 0013 8000</span>
+                    </div>
+                    <button class="searchbar__btn" onclick="searchUser()">查询</button>
+                  </div>
+                  <div class="search-hint" id="userHint">精确匹配手机号；车牌支持完整车牌或后 4 位。</div>
+                </div>
+
+                <div class="plate-hit" id="plateHit" style="display:none">
+                  车牌命中 <b id="plateHitNo">沪A·D2311</b> · 账户 1 个 · 当前在滨江店 3 号工位
+                </div>
+
+                <div class="c">
+                  <div class="user">
+                    <div class="user__av">车</div>
+                    <div>
+                      <div class="user__n">车友_8000 <span class="pill pill--idle" style="vertical-align:2px">正常</span></div>
+                      <div class="user__m">138****8000 · 注册于 2026-03-12</div>
+                    </div>
+                  </div>
+                  <div class="assets" style="margin-top:14px">
+                    <div class="assets__i"><div class="assets__v">42.50</div><div class="assets__k">余额（元）</div></div>
+                    <div class="assets__i"><div class="assets__v">2<small>张</small></div><div class="assets__k">可用团购券</div></div>
+                    <div class="assets__i"><div class="assets__v">386</div><div class="assets__k">累计消费（元）</div></div>
+                  </div>
+                </div>
+
+                <div class="sec"><span class="sec__t">资产操作</span><span class="sec__x">写入余额流水</span></div>
+                <div class="group">
+                  <div class="row" onclick="openSheet()"><div class="row__ic" style="background:var(--green-bg);color:var(--green-ink)">+</div><div><div class="row__t">赠送余额</div><div class="row__s">按金额入账，可用于洗车消费</div></div><div class="row__chev">›</div></div>
+                  <div class="row" onclick="openSheet()"><div class="row__ic" style="background:var(--orange-bg);color:var(--orange-ink)">−</div><div><div class="row__t">扣减余额</div><div class="row__s">输入负数即扣减，需填写原因</div></div><div class="row__chev">›</div></div>
+                  <div class="row" onclick="confirmDanger('清空该用户余额？','余额归零，同时将未使用的充值券置为失效。将记录操作人与时间。','确认清空','已清空余额与未使用券')"><div class="row__ic">清</div><div><div class="row__t">清空余额</div><div class="row__s">含未使用团购券，操作不可撤回</div></div><div class="row__chev">›</div></div>
+                  <div class="row row--danger" onclick="confirmDanger('封禁该用户？','封禁前会先清空余额与未使用券。用户端将无法下单，可在本页解封。','确认封禁','已封禁该用户')"><div class="row__ic">封</div><div><div class="row__t">封禁账号</div><div class="row__s">清空资产并禁止下单</div></div><div class="row__chev">›</div></div>
+                </div>
+
+                <div class="sec"><span class="sec__t">最近订单</span><span class="sec__x" onclick="go('order')">全部 ›</span></div>
+                <div class="c c--flat">
+                  <div class="kv"><span class="kv__k">10-18 10:24 · 3 号工位</span><span class="kv__v">进行中</span></div>
+                  <div class="kv"><span class="kv__k">10-15 19:02 · 1 号工位</span><span class="kv__v num">¥16.40</span></div>
+                  <div class="kv"><span class="kv__k">10-11 08:41 · 5 号工位</span><span class="kv__v num">¥12.80</span></div>
+                </div>
+                <div class="group" style="margin-top:12px">
+                  <div class="row" onclick="toast('查看余额流水')"><div class="row__ic">账</div><div><div class="row__t">余额流水</div><div class="row__s">充值 / 消费 / 赠送 / 清空</div></div><div class="row__chev">›</div></div>
+                  <div class="row" onclick="toast('查看该用户的充值记录与退款')"><div class="row__ic">充</div><div><div class="row__t">充值记录与退款</div><div class="row__s">按手机号检索，已支付可发起退款</div></div><div class="row__chev">›</div></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ---------- 查询 · 订单 ---------- -->
+            <section class="screen" data-screen="order">
+              <div class="nav">
+                <div class="nav__title">查询</div>
+              </div>
+              <div class="scroll">
+                <div class="seg"><button class="on" onclick="go('order')">订单</button><button onclick="go('user')">用户</button></div>
+                <p class="scope-note" style="padding:0 2px 10px">跨店查询，不受当前门店影响；结果里会标出门店。</p>
+                <div class="filters">
+                  <div class="chips"><span class="chip on">近 7 天</span><span class="chip">今天</span><span class="chip">自定义</span></div>
+                  <div class="field"><span class="field__k">手机号</span><div class="field__v"><span class="ph">选填，精确匹配</span></div></div>
+                  <div class="field"><span class="field__k">车牌号</span><div class="field__v field__v--tap" onclick="openPlate('order')"><span class="pl" id="orderPlateText" style="display:none">沪A·D2311</span><span class="ph" id="orderPlatePh">点击录入完整车牌</span></div></div>
+                  <div class="field" style="margin-bottom:0"><span class="field__k">门店</span><div class="field__v"><span class="ph">全部门店</span></div></div>
+                  <button class="btn btn--primary" style="margin-top:12px" onclick="toast('已按条件检索')">搜索订单</button>
+                </div>
+
+                <div class="sec"><span class="sec__t">搜索结果</span><span class="sec__x">共 38 条</span></div>
+
+                <div class="order">
+                  <div class="order__hd"><div class="order__shop">3 号工位<span>滨江店</span></div><span class="pill pill--busy"><span class="dot"></span>进行中</span></div>
+                  <div class="order__body">
+                    <div class="order__col">
+                      <div class="order__kv">开始 <b>10-18 10:24</b></div>
+                      <div class="order__kv">时长 <b>01:02:10</b></div>
+                      <div class="order__kv">用户 <b>138****8000</b></div>
+                      <div class="order__kv">车牌 <b>沪A·D2311</b></div>
+                    </div>
+                    <div class="order__col" style="text-align:right">
+                      <div class="order__fee">¥18.60<small>实时金额</small></div>
+                    </div>
+                  </div>
+                  <div class="order__ft">
+                    <span class="order__link order__link--brand" onclick="go('parking')">代缴停车费</span>
+                    <span class="order__more" onclick="go('station')">工位 ›</span>
+                  </div>
+                </div>
+
+                <div class="order">
+                  <div class="order__hd"><div class="order__shop">1 号工位<span>滨江店</span></div><span class="pill pill--idle">已完成</span></div>
+                  <div class="order__body">
+                    <div class="order__col">
+                      <div class="order__kv">10-18 09:02 → 09:41</div>
+                      <div class="order__kv">时长 <b>39 分钟</b></div>
+                      <div class="order__kv">用户 <b>139****2311</b></div>
+                      <div class="order__kv">车牌 <b>沪B·8K221</b></div>
+                    </div>
+                    <div class="order__col" style="text-align:right">
+                      <div class="order__fee">¥16.40<small>已结算</small></div>
+                    </div>
+                  </div>
+                  <div class="order__ft">
+                    <span class="order__link" onclick="toast('查看整洁奖励记录')">整洁奖励</span>
+                    <span class="order__more" onclick="go('order-detail')">详情 ›</span>
+                  </div>
+                </div>
+
+                <div class="order">
+                  <div class="order__hd"><div class="order__shop">5 号工位<span>滨江店</span></div><span class="pill pill--idle">已完成</span></div>
+                  <div class="order__body">
+                    <div class="order__col">
+                      <div class="order__kv">10-17 21:15 → 21:48</div>
+                      <div class="order__kv">时长 <b>33 分钟</b></div>
+                      <div class="order__kv">用户 <b>137****6677</b></div>
+                      <div class="order__kv">车牌 <b>沪C·1F908</b></div>
+                    </div>
+                    <div class="order__col" style="text-align:right">
+                      <div class="order__fee">¥12.80<small>已结算</small></div>
+                    </div>
+                  </div>
+                  <div class="order__ft">
+                    <span class="order__more" onclick="go('order-detail')">详情 ›</span>
+                  </div>
+                </div>
+                <div class="stage-tip" style="margin:4px 0 0">上拉加载更多</div>
+              </div>
+            </section>
+
+            <!-- ---------- 订单详情 ---------- -->
+            <section class="screen" data-screen="order-detail">
+              <div class="nav">
+                <div class="nav__back" onclick="go('order')">‹</div>
+                <div class="nav__title">订单详情</div>
+              </div>
+              <div class="scroll">
+                <div class="hero hero--order">
+                  <div class="hero__top"><span class="hero__dot"></span>已完成 · 余额支付</div>
+                  <div class="hero__time">¥16.40</div>
+                  <div class="hero__sub">滨江洗车中心 · 1 号工位 · 使用 39 分钟</div>
+                </div>
+
+                <div class="c">
+                  <div class="c__hd"><span class="c__t">订单信息</span><span class="c__x">#202610180211</span></div>
+                  <div class="kv"><span class="kv__k">状态</span><span class="kv__v"><span class="pill pill--idle">已完成</span></span></div>
+                  <div class="kv"><span class="kv__k">门店 / 工位</span><span class="kv__v">滨江洗车中心 · 1 号工位</span></div>
+                  <div class="kv"><span class="kv__k">开始</span><span class="kv__v num">10-18 09:02:14</span></div>
+                  <div class="kv"><span class="kv__k">结束</span><span class="kv__v num">10-18 09:41:06</span></div>
+                  <div class="kv"><span class="kv__k">时长</span><span class="kv__v num">39 分钟</span></div>
+                </div>
+
+                <div class="c">
+                  <div class="c__hd"><span class="c__t">用户与车辆</span><span class="c__x" onclick="go('user')">查看用户 ›</span></div>
+                  <div class="kv"><span class="kv__k">手机号</span><span class="kv__v">139****2311 <button class="mini-btn" onclick="toast('已复制手机号')">复制</button><button class="mini-btn mini-btn--brand" onclick="toast('正在拨打 139****2311')">拨打</button></span></div>
+                  <div class="kv" style="align-items:flex-start">
+                    <span class="kv__k" style="padding-top:3px">车牌</span>
+                    <span class="kv__v" style="flex:1;flex-wrap:wrap;justify-content:flex-end">
+                      <span class="plate">沪B·8K221</span>
+                      <span class="plate-tag">本单</span>
+                      <button class="mini-btn" onclick="copyPlate('沪B·8K221')">复制</button>
+                      <button class="mini-btn mini-btn--brand" id="plateMoreBtn2" onclick="togglePlates('plateList2', 'plateMoreBtn2')">共 2 个 ⌄</button>
+                    </span>
+                  </div>
+                  <div class="plate-list" id="plateList2">
+                    <div class="plate-i">
+                      <span class="plate">沪B·8K221</span><span class="plate-tag">本单</span>
+                      <span class="plate-i__a">
+                        <button class="mini-btn" onclick="copyPlate('沪B·8K221')">复制</button>
+                        <button class="mini-btn" onclick="parkFromOrder('沪B·8K221')">缴停车费</button>
+                      </span>
+                    </div>
+                    <div class="plate-i">
+                      <span class="plate">沪A·D2311</span><span class="plate-tag plate-tag--plain">账户</span>
+                      <span class="plate-i__a">
+                        <button class="mini-btn" onclick="copyPlate('沪A·D2311')">复制</button>
+                        <button class="mini-btn" onclick="parkFromOrder('沪A·D2311')">缴停车费</button>
+                      </span>
+                    </div>
+                    <div class="plate-hint">车牌来自用户车辆库；订单只记录开单时的一个车牌，历史单其余车牌仅作参考。</div>
+                  </div>
+                  <div class="kv"><span class="kv__k">账户余额</span><span class="kv__v num">¥42.50</span></div>
+                </div>
+
+                <div class="c">
+                  <div class="c__hd"><span class="c__t">费用明细</span><span class="c__x">余额支付</span></div>
+                  <div class="fee"><span>洗车费</span><b>¥16.40</b></div>
+                  <div class="fee"><span>团购券抵扣 <em>已抵 15 分钟</em></span><b>已抵扣</b></div>
+                  <div class="fee fee--total"><span>实付</span><b>¥16.40</b></div>
+                  <div class="fee fee--off"><span>停车费 <em>未代缴</em></span><b>—</b></div>
+                </div>
+
+                <div class="c">
+                  <div class="c__hd"><span class="c__t">关联记录</span></div>
+                  <div class="kv"><span class="kv__k">整洁奖励</span><span class="kv__v">待审核 <button class="mini-btn" onclick="go('review')">去审核</button></span></div>
+                  <div class="kv"><span class="kv__k">关联用户</span><span class="kv__v">138****8000 <button class="mini-btn" onclick="go('user')">查看</button></span></div>
+                </div>
+                <p class="scope-note" style="padding-top:10px">停车费不随订单结算，需在离场前按车牌单独代缴；代缴结果会回填到本页。</p>
+              </div>
+              <div class="screen-bar">
+                <button class="btn btn--ghost" onclick="go('user')">查看用户</button>
+                <button class="btn btn--primary" onclick="parkFromOrder('沪B·8K221')">代缴停车费</button>
+              </div>
+            </section>
+
+            <!-- ---------- 停车缴费 ---------- -->
+            <section class="screen" data-screen="parking">
+              <div class="nav">
+                <div class="nav__back" onclick="go('workbench')">‹</div>
+                <div class="nav__title">停车缴费</div>
+              </div>
+              <div class="scroll">
+                <div class="park-shop">
+                  <div class="park-shop__ic">店</div>
+                  <div>
+                    <div class="park-shop__t">滨江洗车中心</div>
+                    <div class="park-shop__s">捷顺停车 · 已连通 · 门店账户代付</div>
+                  </div>
+                  <span class="park-shop__x">门店工具</span>
+                </div>
+
+                <div class="park-plate" id="parkPlate" onclick="openPlate('parking')">
+                  <div>
+                    <div class="park-plate__t">车牌号</div>
+                    <div class="park-plate__s" id="parkPlateSub">点击录入，支持新能源 8 位</div>
+                  </div>
+                  <div class="park-plate__v ph" id="parkPlateText">点击录入 ›</div>
+                </div>
+
+                <div class="c">
+                  <div class="c__hd"><span class="c__t">代缴说明</span><span class="c__x">按停车系统现有规则</span></div>
+                  <div class="kv"><span class="kv__k">金额</span><span class="kv__v" style="font-size:12px;font-weight:400">由停车系统按在场时长结算，页面不展示</span></div>
+                  <div class="kv"><span class="kv__k">支付方式</span><span class="kv__v" style="font-size:12px;font-weight:400">门店账户代付，不走小程序支付</span></div>
+                  <div class="kv"><span class="kv__k">结果</span><span class="kv__v" style="font-size:12px;font-weight:400">成功后系统自动抬杆，车辆可直接离场</span></div>
+                </div>
+
+                <div class="sec"><span class="sec__t">最近代缴</span><span class="sec__x">本门店 · 近 7 天</span></div>
+                <div class="c c--flat">
+                  <div class="kv"><span class="kv__k">沪B·8K221 · 10-18 14:22</span><span class="kv__v" style="font-size:12px;font-weight:400">张伟</span></div>
+                  <div class="kv"><span class="kv__k">沪A·D2311 · 10-18 10:02</span><span class="kv__v" style="font-size:12px;font-weight:400">张伟</span></div>
+                  <div class="kv"><span class="kv__k">沪C·1F908 · 10-17 19:41</span><span class="kv__v" style="font-size:12px;font-weight:400">李敏</span></div>
+                </div>
+                <p class="scope-note">录入车牌 → 二次确认 → 直接代缴。同一车牌 10 分钟内重复提交需再确认一次，避免现场重复扣款。</p>
+              </div>
+              <div class="screen-bar">
+                <button class="btn btn--primary" id="parkPayBtn" style="opacity:.45" onclick="parkPay()">代缴停车费</button>
+              </div>
+            </section>
+
+            <!-- ---------- 审核 ---------- -->
+            <section class="screen" data-screen="review">
+              <div class="nav">
+                <div class="nav__title">整洁奖励</div>
+              </div>
+              <div class="scroll">
+                <div class="tabs">
+                  <span class="tab on">待审核<em>4</em></span>
+                  <span class="tab">待提交</span>
+                  <span class="tab">已通过</span>
+                  <span class="tab">已拒绝</span>
+                </div>
+                <p class="scope-note" style="padding:0 2px 12px">所有门店的提交都在这里处理，不随「现场」页的门店切换而变化；卡片上标注门店名。</p>
+
+                <div class="review">
+                  <div class="review__hd"><span class="review__id">订单 #202610180211</span><span class="pill pill--busy"><span class="dot"></span>待审核</span></div>
+                  <div class="review__meta">
+                    滨江店 · 1 号工位　<b>¥16.40</b><br>
+                    用户 139****2311 · 车牌 沪B·8K221<br>
+                    提交于 08:12 · 等待 2 小时 12 分
+                  </div>
+                  <div class="imgs">
+                    <div class="img"></div><div class="img"></div><div class="img"></div>
+                    <div class="img__more">+2</div>
+                  </div>
+                  <div class="review__ft">
+                    <button class="btn btn--ok" onclick="toast('审核通过，返现已到账')">审核通过</button>
+                    <button class="btn btn--no" onclick="openSheet('reject')">审核拒绝</button>
+                  </div>
+                </div>
+
+                <div class="review">
+                  <div class="review__hd"><span class="review__id">订单 #202610180155</span><span class="pill pill--busy"><span class="dot"></span>待审核</span></div>
+                  <div class="review__meta">
+                    滨江店 · 5 号工位　<b>¥12.80</b><br>
+                    用户 137****6677 · 车牌 沪C·1F908<br>
+                    提交于 07:48 · 等待 2 小时 36 分
+                  </div>
+                  <div class="imgs">
+                    <div class="img"></div><div class="img"></div>
+                  </div>
+                  <div class="review__ft">
+                    <button class="btn btn--ok" onclick="toast('审核通过，返现已到账')">审核通过</button>
+                    <button class="btn btn--no" onclick="openSheet('reject')">审核拒绝</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ---------- 我的 ---------- -->
+            <section class="screen" data-screen="me">
+              <div class="nav">
+                <div class="nav__title">我的</div>
+              </div>
+              <div class="scroll">
+                <div class="me">
+                  <div class="me__av">王</div>
+                  <div>
+                    <div class="me__n">王小明</div>
+                    <div class="me__r"><span class="role">超管</span>滨江洗车中心 · 138****8000</div>
+                  </div>
+                </div>
+
+                <div class="group">
+                  <div class="row" onclick="toggleEnv()"><div class="row__ic">环</div><div><div class="row__t">运行环境</div><div class="row__s" id="envText">生产环境（线上）</div></div><div class="row__chev">›</div></div>
+                </div>
+
+                <div class="placeholder">
+                  <div class="placeholder__hd">本期不实现<i>后续迭代</i></div>
+                  <div class="placeholder__l">默认门店设置 · 操作日志 · 团队与权限 · 关于与版本 · 退出登录</div>
+                  <div class="placeholder__n">先把现场、查询、审核跑通；这一页只保留账号信息与环境切换，上面的入口先不落地，避免做成半成品。</div>
+                </div>
+                <div class="stage-tip" style="margin-top:18px">仅管理员可见 · 非管理员账号登录后直接拦截</div>
+              </div>
+            </section>
+
+            <!-- 底部悬浮：门店切换（仅现场页） -->
+            <div class="floatbar show" id="floatbar">
+              <div class="floatbar__btn" onclick="toast('打开门店列表：只刷新本页工位与门店工具')">
+                <div class="floatbar__ic">店</div>
+                <span class="floatbar__n">滨江洗车中心</span>
+                <span class="floatbar__s">6 个工位</span>
+                <span class="floatbar__x">切换
+                  <svg viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></svg>
+                </span>
+              </div>
+            </div>
+
+            <!-- 弹层：赠送余额 / 语音 -->
+            <div class="mask" id="sheetMask" onclick="closeMask(event)">
+              <div class="sheet" onclick="event.stopPropagation()">
+                <div class="sheet__bar"></div>
+                <div class="sheet__t" id="sheetTitle">赠送余额</div>
+                <div class="sheet__s" id="sheetSub">赠送给 138****8000，到账后可用于洗车消费。</div>
+                <div class="sheet__body" id="sheetAmount">
+                  <div class="amount"><span class="amount__cur">¥</span><span class="amount__v">50.00</span></div>
+                  <div class="amts"><button class="amt">20</button><button class="amt on">50</button><button class="amt">100</button><button class="amt">200</button></div>
+                  <div class="sheet__tip">将写入余额流水，类型「赠送」；不支持撤回，请谨慎操作。</div>
+                </div>
+                <div class="sheet__body" id="sheetReject" style="display:none">
+                  <div class="amts" style="flex-wrap:wrap">
+                    <button class="amt on">照片不清晰</button>
+                    <button class="amt">场地未清理</button>
+                    <button class="amt">非本工位</button>
+                  </div>
+                  <div class="sheet__tip">拒绝原因会同步到用户端，请选择最贴近的一项。</div>
+                </div>
+                <div class="sheet__body" id="sheetVoice" style="display:none">
+                  <div class="preset-list">
+                    <button class="preset on">请勿占用相邻工位</button>
+                    <button class="preset">洗车结束后请及时驶离</button>
+                    <button class="preset">请勿在场地内吸烟</button>
+                  </div>
+                  <div class="field-note">或自定义播报内容</div>
+                  <textarea class="sheet__textarea" placeholder="输入要现场播报的文字，最多 60 字"></textarea>
+                  <div class="sheet__tip">通过工位音响单向播报，不涉及对讲。</div>
+                </div>
+                <div class="sheet__body" id="sheetTowel" style="display:none">
+                  <div class="door-hd">
+                    <span class="door-hd__t">选择要打开的柜门 · 可多选</span>
+                    <span class="door-hd__a" id="doorAll" onclick="toggleAllDoors()">全选空闲</span>
+                  </div>
+                  <div class="door-grid" id="doorGrid"></div>
+                  <div class="door-legend">
+                    <span><i style="background:#fff"></i>空闲</span>
+                    <span><i style="background:#FDEBEF;border-color:#F3B6C8"></i>已选</span>
+                    <span><i style="background:#F4F6F8;border-color:#F0F2F4"></i>使用中</span>
+                  </div>
+                  <div class="door-bar"><span>已选 <b id="doorCount">0</b> / 20 扇</span><span style="margin-left:auto;color:#B0B6BE">开柜后 30 秒自动关闭</span></div>
+                </div>
+                <div class="sheet__ft">
+                  <button class="btn btn--ghost" onclick="closeMask()">取消</button>
+                  <button class="btn btn--primary" id="sheetConfirm" onclick="confirmSheet()">确认赠送</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 弹层：危险确认 -->
+            <div class="mask" id="dangerMask" onclick="closeDanger(event)">
+              <div class="dialog" id="dialogBox" onclick="event.stopPropagation()">
+                <div class="dialog__ic" id="dialogIc">!</div>
+                <div class="dialog__t" id="dangerTitle">结束当前订单？</div>
+                <div class="dialog__c" id="dangerText">将按当前时长结算并立即关单。</div>
+                <div class="dialog__ft">
+                  <button class="btn btn--ghost" onclick="closeDanger()">取消</button>
+                  <button class="btn btn--danger" id="dangerOk">确认结束</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 弹层：车牌键盘（用户 / 订单 / 停车缴费共用） -->
+            <div class="mask" id="plateMask" onclick="closePlate(event)">
+              <div class="pk" onclick="event.stopPropagation()">
+                <div class="pk__bar"></div>
+                <div class="pk__hd">
+                  <span class="pk__t">录入车牌</span>
+                  <span class="pk__x" onclick="closePlate()">关闭</span>
+                </div>
+                <div class="pk__display" id="pkDisplay"></div>
+                <div class="pk__meta">
+                  <span id="pkHint">请选择省份</span>
+                  <span class="pk__len" id="pkLen" onclick="toggleEnergy()">普通 7 位</span>
+                </div>
+                <div class="pk__quick">
+                  <span class="pk__quick-t">最近</span>
+                  <button class="pk__chip" onclick="useRecentPlate('沪A·D2311')">沪A·D2311</button>
+                  <button class="pk__chip" onclick="useRecentPlate('沪B·8K221')">沪B·8K221</button>
+                  <button class="pk__chip" onclick="useRecentPlate('沪C·1F908')">沪C·1F908</button>
+                </div>
+                <div class="pk__tabs">
+                  <button class="on" data-pkmode="prov" onclick="setPkMode('prov')">省份</button>
+                  <button data-pkmode="char" onclick="setPkMode('char')">字母 / 数字</button>
+                </div>
+                <div class="pk__grid pk__grid--prov" id="pkProv"></div>
+                <div class="pk__grid pk__grid--char" id="pkChar" style="display:none"></div>
+                <div class="pk__ft">
+                  <button class="pk__key pk__key--fn" onclick="pkClear()">清空</button>
+                  <button class="pk__key pk__key--ok" id="pkDone" onclick="pkConfirm()">完成</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="toast" id="toast"></div>
+          </div>
+
+          <!-- Tabbar -->
+          <nav class="tabbar" id="tabbar">
+            <div class="tb on" data-tab="workbench" onclick="go('workbench')">
+              <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.6"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.6"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.6"/></svg>
+              <span class="tb__t">现场</span>
+            </div>
+            <div class="tb" data-tab="query" onclick="go('order')">
+              <svg viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.4"/><path d="m15.6 15.6 4 4"/></svg>
+              <span class="tb__t">查询</span>
+            </div>
+            <div class="tb" data-tab="review" onclick="go('review')">
+              <svg viewBox="0 0 24 24"><path d="M12 3.2 4.8 6v6c0 4.2 3 7.4 7.2 8.8 4.2-1.4 7.2-4.6 7.2-8.8V6z"/><path d="m9 12 2.2 2.2L15.5 10"/></svg>
+              <span class="tb__dot">4</span>
+              <span class="tb__t">审核</span>
+            </div>
+            <div class="tb" data-tab="me" onclick="go('me')">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.6"/><path d="M4.8 20.2c0-3.6 3.2-5.6 7.2-5.6s7.2 2 7.2 5.6"/></svg>
+              <span class="tb__t">我的</span>
+            </div>
+          </nav>
+        </div>
+      </div>
+
+      <p class="stage-tip">底部悬浮条切店，只刷新「现场」· 工位卡片进详情 · 订单卡片看详情 · 危险操作先确认</p>
+    </div>
+
+    <!-- ================= 右侧说明 ================= -->
+    <div class="side">
+      <div class="panel">
+        <h2><i></i>作用域模型</h2>
+        <p class="desc">切换门店只作用于「现场」页。跨店功能各自成页，不携带门店上下文，避免切店后看到串店数据。</p>
+        <table>
+          <thead><tr><th style="width:72px">作用域</th><th>包含内容</th><th style="width:158px">切店影响</th></tr></thead>
+          <tbody>
+            <tr><td><b>全局</b></td><td>整洁奖励审核、订单查询与详情、用户查询</td><td>无影响，永远查全部门店</td></tr>
+            <tr><td><b>门店</b></td><td>工位总览、门店工具（停车缴费等）</td><td>本页刷新；工具按新门店能力重算</td></tr>
+            <tr><td><b>工位</b></td><td>开门、语音、结束订单、维护、通风全开；毛巾柜柜门（预留）</td><td>随门店变化，同店不同工位也可不同</td></tr>
+          </tbody>
+        </table>
+        <div class="ia" style="margin-top:14px">
+          <div class="ia__i"><div class="ia__n"><em>1</em>现场</div><div class="ia__d"><b>门店域</b>：底部悬浮切店、工位总览、门店工具</div></div>
+          <div class="ia__i"><div class="ia__n"><em>2</em>查询</div><div class="ia__d"><b>全局域</b>：订单 / 用户两段切换</div></div>
+          <div class="ia__i"><div class="ia__n"><em>3</em>审核</div><div class="ia__d"><b>全局域</b>：整洁奖励待办与历史</div></div>
+          <div class="ia__i"><div class="ia__n"><em>4</em>我的</div><div class="ia__d"><b>全局域</b>：本期只留账号与环境切换</div></div>
+        </div>
+        <p class="desc" style="margin:14px 0 0">二级页只保留工位详情（门店域）。停车缴费从「门店工具 / 工位详情 / 订单」进入，都显式带 <code>shop_id</code>，不再有全局入口，因此不会出现「切了店但缴费还打在老店」的问题。</p>
+      </div>
+
+      <div class="panel">
+        <h2><i></i>登录与账号体系（两步）</h2>
+        <p class="desc">新小程序与 C 端用户体系暂不打通，因此不复用 C 端 <code>openid</code>，也不用 <code>is_super</code> 判定。管理员身份独立建档，微信只作为设备身份。</p>
+        <div class="flow" style="margin-bottom:12px">
+          <span>① <code>wx.login</code> 取 code</span><i>→</i><span>换 openid（未绑定态）</span><i>→</i><span>② 手机号 + 8 位授权码</span><i>→</i><span>绑定 openid 并签发 token</span>
+        </div>
+        <table>
+          <thead><tr><th style="width:78px">阶段</th><th>前端</th><th style="width:190px">后端</th></tr></thead>
+          <tbody>
+            <tr><td><b>① 微信授权</b></td><td>静默 <code>wx.login</code>，不在此时索取手机号与头像</td><td><code>POST /admin/auth/wx-login</code> → <code>openid_ticket</code>（短期，5 分钟）</td></tr>
+            <tr><td><b>② 账号绑定</b></td><td>手机号 + 授权码，输入即转大写、去空格</td><td><code>POST /admin/auth/bind</code> → 校验账号、写入 <code>openid</code>、签发 token</td></tr>
+            <tr><td><b>再次进入</b></td><td>本地有 token 直接进；过期则静默重登</td><td><code>POST /admin/auth/refresh</code>，openid 已绑定则免授权码</td></tr>
+          </tbody>
+        </table>
+        <ol class="notes" style="margin-top:14px">
+          <li><b>授权码规则：</b>8 位，数字 + 大小写字母，去掉 <code>0/O/1/I/l</code> 等易混字符（实际字符集约 56 个）。后台创建账号时生成，<b>首次绑定后即失效</b>；重置由超管操作，旧码同时作废。</li>
+          <li><b>服务端只存哈希：</b><code>auth_code_hash</code>（bcrypt/argon2），不存明文，后台列表也只显示「已绑定 / 未绑定」。核对失败一律返回同一句提示，避免枚举手机号。</li>
+          <li><b>防爆破：</b>同一 <code>openid</code> + 手机号 10 分钟内 5 次失败锁 30 分钟；同一 IP 加限流；绑定成功清空计数。</li>
+          <li><b>两种身份要分开：</b><code>admin_accounts</code> 独立表，字段含 <code>phone</code>、<code>name</code>、<code>role</code>（super / shop_admin）、<code>status</code>、<code>wx_openid</code>、<code>auth_code_hash</code>、<code>code_used_at</code>；预留 <code>user_id</code> 可空，未来与 C 端打通时再回填，不做强关联。</li>
+          <li><b>门店归属：</b><code>admin_shop_scopes(admin_id, shop_id)</code>。超管不写范围即全部门店；店长只写授权门店。所有门店域接口都要校验 <code>shop_id ∈ scope</code>，不能只靠前端隐藏。</li>
+        </ol>
+      </div>
+
+      <div class="panel">
+        <h2><i></i>能力模型（预先设计）</h2>
+        <p class="desc">把「有哪些按钮」交给配置，前端只认渲染类型。基础操作也走同一套，避免「固定按钮 + 动态按钮」两套逻辑。</p>
+        <pre class="codeblock">GET /admin/v1/stations/T3/capabilities
+
+[
+  {
+    "key": "open_door",          // 基础能力，所有门店都有
+    "scope": "station",
+    "placement": "action",       // action | tool
+    "render": "instant",         // instant | confirm | form | toggle | page
+    "title": "开门",
+    "command": { "target": "gate", "action": "open" },
+    "permission": "admin",
+    "sort": 10
+  },
+  {
+    "key": "towel_cabinet",      // 仅部分门店 / 工位启用
+    "scope": "station",
+    "placement": "action",
+    "render": "form",
+    "title": "毛巾柜",
+    "form": { "fields": [
+      { "key": "doors", "type": "grid", "columns": 5, "total": 20,
+        "multi": true, "stateField": "door_status" }
+    ]},
+    "actions": [                 // 一个能力可带多个动作
+      { "action": "open",     "title": "指定柜门开启" },
+      { "action": "open_all", "title": "毛巾柜全开", "confirm": true }
+    ],
+    "permission": "admin",
+    "sort": 60
+  },
+  {
+    "key": "ventilation",        // 部分门店有、部分没有
+    "scope": "station",
+    "placement": "action",
+    "render": "confirm",
+    "title": "通风全开",
+    "command": { "target": "ventilation", "action": "on" },
+    "permission": "admin",
+    "sort": 70
+  },
+  {
+    "key": "parking_fee",        // 门店级，三方参数每店不同
+    "scope": "shop",
+    "placement": "tool",
+    "render": "page",
+    "title": "停车缴费",
+    "page": "/pages/parking-fee/index",
+    "config": { "url": "...", "form_params": { "...": "..." } },
+    "permission": "super",
+    "sort": 10
+  }
+]</pre>
+        <ol class="notes" style="margin-top:16px">
+          <li><b>合并规则：</b>门店配置 + 工位配置，同 <code>key</code> 工位覆盖门店；<code>enabled=false</code> 不下发；前端按返回顺序渲染，零硬编码。</li>
+          <li><b>命令统一入口：</b><code>POST /admin/v1/stations/{id}/commands</code>，body 为 <code>{key, action, params, idem_key}</code>。后端映射到现有 MQTT 复合指令（<code>MqttCompositeCommandData</code> 已支持 <code>target / action / data</code>），毛巾柜、通风不用各加一个接口。</li>
+          <li><b>渲染器只有 5 种：</b>即时、确认、表单、开关、跳页。遇到未知 <code>render</code> 降级成「确认弹窗 + 通用提交」，新设备不需要前端发版。</li>
+          <li><b>柜门这类「多目标」操作单独抽一个 <code>grid</code> 字段类型：</b>5 列 × N 行，按 <code>total</code> 自动铺满，每格带 <code>door_status</code>（空闲 / 使用中），使用中置灰不可点。20 扇、40 扇都只是 <code>total</code> 不同，前端不改。全开走同能力的 <code>open_all</code> 动作，仍需二次确认。</li>
+          <li><b>停车费按店配置：</b>现在 <code>config.Cfg.ParkingFee</code> 是全局单例，多家店不同停车系统时不够用，应下沉到 <code>capability.config</code>（url / headers / form_params / provider）。</li>
+        </ol>
+      </div>
+
+      <div class="panel">
+        <h2><i></i>接口包装：旧接口 → 管理端 v1</h2>
+        <p class="desc">现有接口是为 C 端页面拼的：入参带隐式用户、返回夹带营销字段、分页与错误码不统一。管理端统一走 <code>/admin/v1</code> 新命名空间，<b>复用 service，不复用 DTO</b>。</p>
+        <pre class="codeblock">// 统一响应
+{ "code": 0, "message": "ok", "data": {}, "trace_id": "..." }
+
+// 鉴权：Authorization: Bearer &lt;token&gt;
+// 每次请求注入 admin_id / role / shop_scope
+GET    /admin/v1/auth/profile
+POST   /admin/v1/auth/wx-login            { code }
+POST   /admin/v1/auth/bind                { ticket, phone, auth_code }
+POST   /admin/v1/auth/logout              无 refresh token：token 7 天，401 时重走 wx-login
+
+GET    /admin/v1/shops                    仅返回 scope 内门店
+GET    /admin/v1/shops/{id}/stations      含进行中订单的聚合（不含金额）
+GET    /admin/v1/stations/{id}            详情 + 当前订单 + 车辆
+GET    /admin/v1/stations/{id}/capabilities
+POST   /admin/v1/stations/{id}/commands   { key, action, params, idem_key }
+POST   /admin/v1/stations/{id}/maintenance  { action: set | clear }
+
+GET    /admin/v1/orders                   时间/手机/车牌/门店 + 游标分页
+GET    /admin/v1/orders/{id}
+POST   /admin/v1/orders/{id}/finish       { reason }
+GET    /admin/v1/users?phone=|plate=
+POST   /admin/v1/users/{id}/actions       grant/deduct/clear/ban/unban
+GET    /admin/v1/users/{id}/balance-logs
+GET    /admin/v1/users/{id}/recharges
+POST   /admin/v1/recharges/{id}/refund
+GET    /admin/v1/cleanup-rewards
+POST   /admin/v1/cleanup-rewards/{id}/review
+POST   /admin/v1/parking/pay              { shop_id, plate_no, order_id?, idem_key, confirm_again? }
+GET    /admin/v1/parking/records          ?shop_id=&days=7   无金额，只记车牌与时间</pre>
+        <table style="margin-top:14px">
+          <thead><tr><th style="width:200px">旧接口 / 旧入口</th><th>处理方式</th></tr></thead>
+          <tbody>
+            <tr><td><code>POST /coupons/exchange</code><br><span class="muted">魔法指令</span></td><td>抽出 <code>admin/service.ApplyUserAction</code>；新接口调它，旧入口保留给 C 端超管兼容，加 <code>deprecated</code> 标记</td></tr>
+            <tr><td><code>POST /shop/super-command</code></td><td>保留实现，新增 <code>/stations/{id}/commands</code> 做参数校验、权限过滤、幂等与审计，内部转调</td></tr>
+            <tr><td><code>GET /shop/list</code></td><td>管理端不再用它算工位总览；新接口一次聚合工位 + 进行中订单，避免 N+1</td></tr>
+            <tr><td><code>GET /shop/station/detail</code></td><td>返回面扩充：当前订单、用户车辆全量、能力列表；字段与 C 端解耦</td></tr>
+            <tr><td><code>/admin/order/search</code>、<code>/admin/recharge/*</code>、<code>/admin/cleanup-reward/*</code></td><td>逻辑可复用，统一包一层 v1 handler：换 DTO、统一分页、补 <code>shop_id</code> 与 <code>plate_no</code></td></tr>
+          </tbody>
+        </table>
+        <ol class="notes" style="margin-top:14px">
+          <li><b>三层落位：</b><code>internal/api/adminv1/</code>（HTTP、参数校验、DTO）→ <code>internal/service/adminapp/</code>（编排、权限、审计）→ 复用现有 <code>repo</code> 与设备指令层。不要在新 handler 里直接拼 SQL。</li>
+          <li><b>权限在 service 里判，不在 handler。</b>能力列表按 <code>permission</code> 过滤，命令执行前再校验一次；否则前端改包就能越权。</li>
+          <li><b>写操作要幂等：</b>结束订单、退款、代缴、开柜都带 <code>idem_key</code>，服务端 5 分钟内去重，避免弱网重试造成重复扣款或重复开柜。</li>
+          <li><b>分页统一游标：</b><code>cursor + limit</code>，订单表按时间倒序；页码分页在数据量上来后会越来越慢。</li>
+          <li><b>错误码分段：</b><code>40x</code> 鉴权/参数，<code>41xx</code> 业务拒绝（如工位维护中），<code>42xx</code> 设备离线；前端按码给文案，不要靠 message 匹配。</li>
+        </ol>
+      </div>
+
+      <div class="panel">
+        <h2><i></i>功能映射：旧功能 → 新位置</h2>
+        <p class="desc"><span class="ok">✔ 已具备</span>　<span class="chg">⚠ 需改造</span>　<span class="new">＋ 建议新增</span></p>
+        <table>
+          <thead><tr><th style="width:74px">模块</th><th style="width:44px">作用域</th><th>管理动作</th><th style="width:126px">来源</th><th style="width:186px">接口</th></tr></thead>
+          <tbody>
+            <tr><td><b>登录 / 账号</b></td><td>全局</td><td>微信授权 → 手机号 + 8 位授权码绑定；再进入免授权码</td><td class="muted">无，新体系</td><td><code>/admin/auth/*</code> <span class="new">＋ 新增</span></td></tr>
+            <tr><td><b>工位总览</b></td><td>门店</td><td>各工位状态、占用时长、当前用户尾号</td><td class="muted">首页工位弹层</td><td><code>GET /shop/list</code> <span class="chg">⚠ 补 working_order 汇总</span></td></tr>
+            <tr><td><b>工位详情</b></td><td>工位</td><td>状态、计时、手机复制拨打、<b>多车牌（折叠 + 全部）</b>、余额、券数<br><span class="muted">本期不做操作历史</span></td><td class="muted">旧版工位详情「管理员功能」</td><td><code>GET /shop/station/detail</code> <span class="chg">⚠ 补车辆列表</span></td></tr>
+            <tr><td><b>基础能力</b></td><td>工位</td><td>开门 / 语音播报 / 结束订单 / 维护<br><span class="muted">关门、上电不暴露：后端有命令，但设备侧没有对应操作场景</span></td><td class="muted">旧版工位详情 + 魔法指令</td><td><code>POST /stations/{id}/commands</code> <span class="new">＋ 包装</span><br><span class="muted">底层复用 super-command</span></td></tr>
+            <tr><td><b>扩展能力</b></td><td>门店<br>工位</td><td>通风全开（本期）；毛巾柜（全开 / 指定 20 扇中的某一扇）<b>仅预留接口，本期不接入</b><br><span class="muted">按钮由能力配置下发，未启用的门店不显示</span></td><td class="muted">无，按门店能力配置</td><td><code>GET /stations/{id}/capabilities</code> <span class="new">＋</span><br><code>POST /stations/{id}/commands</code> <span class="new">＋</span></td></tr>
+            <tr><td><b>门店工具</b></td><td>门店</td><td>停车缴费<br><span class="muted">车牌键盘录入 → 二次确认 → 直接代缴，<b>不查询、不展示金额</b></span></td><td class="muted">个人中心「停车缴费」</td><td><code>POST /admin/v1/parking/pay</code> <span class="chg">⚠ 新包装</span><br><span class="muted">底层复用 PayParkingFeeByConfig</span></td></tr>
+            <tr><td><b>用户资产</b></td><td>全局</td><td>赠送 / 扣减 / 清空余额，封禁 / 解封</td><td class="muted">魔法指令 <code>手机号/金额</code>、<code>/ca</code>、<code>/ban</code>、<code>/unban</code></td><td><code>POST /admin/user/action</code> <span class="new">＋ 新增</span></td></tr>
+            <tr><td><b>用户查询</b></td><td>全局</td><td>按手机号或车牌号查资料、余额、券、跨店订单<br><span class="muted">车牌支持完整车牌与后 4 位</span></td><td class="muted">无，原先只能靠订单反查</td><td><code>GET /admin/user/search</code> <span class="new">＋ 新增</span></td></tr>
+            <tr><td><b>订单查询</b></td><td>全局</td><td>时间 / 手机 / 车牌组合检索、游标分页<br><span class="muted">列表不复制单号，车牌在卡片上直出</span></td><td class="muted">个人中心「订单查询」</td><td><code>GET /admin/order/search</code> <span class="chg">⚠ 补 plate 索引</span></td></tr>
+            <tr><td><b>订单详情</b></td><td>全局</td><td>状态与实付、时间与时长、费用明细、用户与多车牌、整洁奖励、代缴入口</td><td class="muted">无，C 端详情接口已下线</td><td><code>GET /admin/order/detail</code> <span class="new">＋ 新增</span></td></tr>
+            <tr><td><b>充值售后</b></td><td>全局</td><td>充值记录检索、发起退款</td><td class="muted">个人中心「充值记录」</td><td><code>/admin/recharge/search</code> <span class="ok">✔</span><br><code>/admin/recharge/refund</code> <span class="ok">✔</span></td></tr>
+            <tr><td><b>余额流水</b></td><td>全局</td><td>按手机号查流水</td><td class="muted">个人中心「余额流水」</td><td><code>GET /admin/user/balance/log/list</code> <span class="ok">✔</span></td></tr>
+            <tr><td><b>整洁奖励</b></td><td>全局</td><td>列表筛选、通过 / 拒绝、备注</td><td class="muted">个人中心「整洁奖励」</td><td><code>/admin/cleanup-reward/list</code> <span class="ok">✔</span><br><code>/admin/cleanup-reward/review</code> <span class="ok">✔</span></td></tr>
+            <tr><td><b>系统</b></td><td>全局</td><td>默认门店、预发 / 生产环境切换</td><td class="muted">个人中心环境切换</td><td>前端本地配置 <span class="ok">✔</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2><i></i>落地要点</h2>
+        <ol class="notes">
+          <li><b>作用域先定，再谈排布。</b>门店切换做成「现场」页底部悬浮条，随时可切、滑动不遮挡；只刷新本页工位与门店工具。订单、用户、审核不读当前门店，因此切店不会出现「查的是全量数据、按钮却按老店能力渲染」的错位。工位详情不再放切店入口，进入时就带死 <code>shop_id</code>。</li>
+          <li><b>独立 appid = 新 openid，且与 C 端不打通。</b>登录拆成两步：先 <code>wx.login</code> 拿 openid 换短期 <code>ticket</code>，再用手动输入的「手机号 + 8 位授权码」绑定后台预建的管理员账号。绑定成功后 openid 与账号一对一，后续静默重登不再要授权码。C 端的 <code>is_super</code> 不参与鉴权。</li>
+          <li><b>把魔法指令翻译成表单。</b>前端不再出现 <code>138xxxx/50</code> 这类指令串，改成「手机号 + 金额 + 原因」的表单；后端新增显式接口，旧指令路径保留给 C 端兼容。</li>
+          <li><b>能力配置是唯一的「有无」开关。</b>门店看不到毛巾柜不是前端判断的，而是接口没下发。新设备接入 = 配置一条 + 设备侧实现同一个 <code>target/action</code>，管理端不发版。</li>
+          <li><b>权限本期只建超管。</b>所有功能对超管开放，<code>role</code>、门店范围、能力 <code>permission</code> 全部落库并出现在接口里，但<b>不参与拦截</b>；将来开加盟商时建 <code>role=1</code> 账号 + 写 scope + 打开中间件即可，接口与前端都不用改。</li>
+          <li><b>危险操作三重确认。</b>弹窗 → 说明影响面 → 确认按钮用红色而非品牌色；结束后 toast + 原地回填，不整页刷新。封禁建议再填一次用户手机尾号。</li>
+          <li><b>操作审计先只写库，不做页面。</b>现有只有封禁/解封日志，建议加一张 <code>admin_operation_log</code>：操作人、门店、工位、能力 <code>key</code>、参数、结果、时间。本期工位详情不展示「最近操作」，「我的 - 操作日志」也留到下一版，但写入要一开始就做——否则出了问题追溯不了。</li>
+          <li><b>多车牌要补一个「默认」概念。</b><code>sc_user_vehicles</code> 没有 <code>is_default</code> / <code>sort</code>，现在取 <code>UserVehicles[0]</code> 顺序不稳定。展示上折叠只露本单车牌、展开列全部；数据上建议加 <code>is_default</code>（唯一）+ <code>sort</code>，否则「默认车牌」每次刷新都可能变。另外订单只在开单时记录一个车牌，历史单里的其余车牌属于「账户参考」，不能当成「本单事实」展示。</li>
+          <li><b>订单详情需要一个新接口。</b><code>/order/detail/:id</code> 在 <code>web.go</code> 里是注释掉的；<code>AdminOrderItem</code> 不含 <code>payment_details</code>（余额 / 券 / 夜间优惠怎么付的）、不含 <code>shop_id</code> / <code>station_id</code>（从详情跳工位要用），<code>plate_no</code> 还可能为空。要展示「实付构成」，新增 <code>GET /admin/order/detail?id=</code> 一次返回：订单 + 支付明细 + 用户车辆 + 整洁奖励 + 代缴记录。停车费目前订单表完全没有记录，要展示代缴结果得补 <code>parking_paid_at</code>（只记时间，不记金额；金额由停车系统结算、接口不回传），代缴动作本身写入 <code>admin_operation_log</code>。</li>
+          <li><b>工位总览补一个聚合接口。</b><code>/shop/list</code> 的站内明细目前不带进行中订单，管理端要显示「已洗多久 / 谁在用」需避免逐个工位请求。建议 <code>GET /admin/station/overview?shop_id=</code> 一次返回。</li>
+          <li><b>车牌键盘只做一个组件。</b>用户查询、订单筛选、停车缴费三处共用 <code>components/PlateKeyboard</code>：省份 8 列、字母数字 9 列，第二字符强制字母、自动过滤 I/O；输出统一为「沪A·D2311」格式，父组件只关心 <code>v-model</code>。不要在三个页面各写一套 input。</li>
+          <li><b>去掉的部分。</b>计费规则展示、充值档位、券码兑换规则、首页营销弹窗与滚动文案、新人优惠配置，以及面向 C 端的下单 / 充值 / 绑定车牌流程，全部不进管理端。</li>
+        </ol>
+      </div>
+
+      <div class="panel">
+        <h2><i></i>建议拆分与节奏</h2>
+        <p class="desc">先把现场跑顺，再补跨店查询与资金，最后接能力配置后台与报表。</p>
+        <div class="flow">
+          <span>P0 登录 + 账号绑定</span><i>→</i><span>现场：工位总览 + 工位详情（基础能力）</span><i>→</i><span>门店工具框架 + 停车缴费</span><i>→</i><span>能力配置表 + 通用设备命令</span><i>→</i><span>查询（订单列表 + 订单详情 / 用户）</span><i>→</i><span>审核</span><i>→</i><span>用户资产 + 充值退款</span><i>→</i><span>审计 + 报表</span>
+        </div>
+        <p class="desc" style="margin:14px 0 0">新增小程序目录建议：<code>pages/login</code>（两步）、<code>pages/workbench</code>（现场）、<code>pages/station-detail</code>、<code>pages/query</code>（订单 / 用户两段）、<code>pages/review</code>、<code>pages/profile</code>、<code>pages/parking-fee</code>；公共组件 <code>components/PlateKeyboard</code>、<code>components/CapabilityAction</code>。<code>api/</code> 与 <code>utils/request</code>、<code>utils/auth</code> 可从现有前端移植后改造。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const screens = ['login', 'workbench', 'station', 'parking', 'user', 'order', 'order-detail', 'review', 'me'];
+  const tabbar = document.getElementById('tabbar');
+  const switchBar = document.getElementById('switch');
+
+  function go(name) {
+    document.querySelectorAll('.screen').forEach(el => {
+      el.classList.toggle('is-active', el.dataset.screen === name);
+    });
+    const withTab = ['workbench', 'order', 'user', 'review', 'me'].includes(name);
+    tabbar.style.display = withTab ? 'flex' : 'none';
+    document.getElementById('floatbar').classList.toggle('show', name === 'workbench');
+    const tabOf = n => (n === 'order' || n === 'user') ? 'query' : n;
+    document.querySelectorAll('.tb').forEach(t => t.classList.toggle('on', t.dataset.tab === tabOf(name)));
+    switchBar.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.go === name));
+    document.querySelector('.screen.is-active .scroll').scrollTop = 0;
+  }
+  switchBar.addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (btn) go(btn.dataset.go);
+  });
+
+  /* toast */
+  let toastTimer;
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 1600);
+  }
+
+  /* 多车牌：折叠只显示本单车牌，展开看账户下全部车辆 */
+  function togglePlates(listId, btnId) {
+    const list = document.getElementById(listId || 'plateList');
+    const btn = document.getElementById(btnId || 'plateMoreBtn');
+    const open = list.classList.toggle('open');
+    const n = list.querySelectorAll('.plate-i').length;
+    btn.textContent = open ? '收起 ⌃' : `共 ${n} 个 ⌄`;
+  }
+  function copyPlate(no) {
+    toast('已复制车牌 ' + no);
+  }
+
+  /* ---------- 登录：两步 ---------- */
+  function wxAuth(silent) {
+    document.getElementById('stepPill').style.display = 'inline-flex';
+    document.getElementById('wxBtn').textContent = '已授权 · 重新授权';
+    const box = document.getElementById('bindBox');
+    box.style.opacity = '1';
+    box.style.pointerEvents = 'auto';
+    document.getElementById('stepNo2').classList.remove('login__no--off');
+    document.getElementById('stepT2').classList.remove('login__st--off');
+    if (!silent) toast('微信授权成功，请绑定管理员账号');
+  }
+
+  /* ---------- 用户查询：手机号 / 车牌号 ---------- */
+  function setUserMode(mode) {
+    document.querySelectorAll('#userMode button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+    const input = document.getElementById('userInput');
+    const txt = document.getElementById('userInputText');
+    const hint = document.getElementById('userHint');
+    document.getElementById('plateHit').style.display = 'none';
+    if (mode === 'plate') {
+      input.classList.add('searchbar__input--tap');
+      txt.className = 'ph';
+      txt.textContent = '点击录入车牌号';
+      hint.textContent = '支持完整车牌，或直接输入后 4 位；匹配到账户后可直接查看资产与订单。';
+    } else {
+      input.classList.remove('searchbar__input--tap');
+      txt.className = 'pl';
+      txt.textContent = '138 0013 8000';
+      hint.textContent = '精确匹配手机号；车牌支持完整车牌或后 4 位。';
+    }
+  }
+  document.getElementById('userMode').addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (btn) setUserMode(btn.dataset.mode);
+  });
+  function onUserInput() {
+    const mode = document.querySelector('#userMode button.on').dataset.mode;
+    if (mode === 'plate') openPlate('user');
+    else toast('手机号输入：演示版已预填');
+  }
+  function searchUser() {
+    const mode = document.querySelector('#userMode button.on').dataset.mode;
+    if (mode === 'plate') {
+      const t = document.getElementById('userInputText').textContent.trim();
+      if (!t || t.indexOf('点击') === 0) { openPlate('user'); return; }
+      document.getElementById('plateHit').style.display = 'flex';
+      document.getElementById('plateHitNo').textContent = t;
+      toast('已按车牌 ' + t + ' 匹配到 1 个账户');
+    } else {
+      document.getElementById('plateHit').style.display = 'none';
+      toast('已按手机号查询');
+    }
+  }
+
+  /* ---------- 车牌键盘（用户 / 订单 / 停车缴费共用） ---------- */
+  const PK_PROV = ['京','津','冀','晋','蒙','辽','吉','黑','沪','苏','浙','皖','闽','赣','鲁','豫','鄂','湘','粤','桂','琼','渝','川','贵','云','藏','陕','甘','青','宁','新'];
+  const PK_KEYS = ['1','2','3','4','5','6','7','8','9','Q','W','E','R','T','Y','U','P','A','S','D','F','G','H','J','K','L','Z','X','C','V','B','N','M','0'];
+  const PK = { target: null, chars: [], energy: false };
+  const pkProvEl = document.getElementById('pkProv');
+  const pkCharEl = document.getElementById('pkChar');
+  const plateMask = document.getElementById('plateMask');
+
+  pkProvEl.innerHTML = PK_PROV.map(p => `<button class="pk__key" data-prov="${p}">${p}</button>`).join('');
+  pkCharEl.innerHTML = PK_KEYS.map(k => `<button class="pk__key" data-key="${k}">${k}</button>`).join('')
+    + '<button class="pk__key pk__key--fn" style="grid-column:span 2" onclick="pkBack()">删除</button>';
+
+  function pkMax() { return PK.energy ? 8 : 7; }
+  function pkCursor() {
+    const max = pkMax();
+    for (let i = 0; i < max; i++) if (!PK.chars[i]) return i;
+    return -1;
+  }
+  function renderPk() {
+    const max = pkMax();
+    const cur = pkCursor();
+    let html = '';
+    for (let i = 0; i < max; i++) {
+      if (i === 2) html += '<div class="pk__cell pk__cell--dot">·</div>';
+      const cls = ['pk__cell'];
+      if (i === 0) cls.push('pk__cell--prov');
+      if (i === cur) cls.push('pk__cell--on');
+      html += `<div class="${cls.join(' ')}">${PK.chars[i] || ''}</div>`;
+    }
+    document.getElementById('pkDisplay').innerHTML = html;
+    document.getElementById('pkHint').textContent = cur === 0
+      ? '请选择省份'
+      : cur === -1 ? '车牌已录满，删除后可修改' : `已录入 ${cur} / ${max} 位`;
+    document.getElementById('pkLen').textContent = PK.energy ? '新能源 8 位' : '普通 7 位';
+    document.getElementById('pkDone').disabled = !PK.chars.slice(0, max).every(Boolean);
+    pkCharEl.querySelectorAll('[data-key]').forEach(el => {
+      const isDigit = /\d/.test(el.dataset.key);
+      const locked = (cur === 1 && isDigit) || cur === 0;
+      el.classList.toggle('pk__key--dis', locked);
+    });
+  }
+  pkProvEl.addEventListener('click', e => {
+    const b = e.target.closest('[data-prov]');
+    if (!b) return;
+    PK.chars[0] = b.dataset.prov;
+    setPkMode('char');
+    renderPk();
+  });
+  pkCharEl.addEventListener('click', e => {
+    const b = e.target.closest('[data-key]');
+    if (!b || b.classList.contains('pk__key--dis')) return;
+    let cur = pkCursor();
+    if (cur === -1) cur = pkMax() - 1;
+    if (cur < 1) return;
+    PK.chars[cur] = b.dataset.key;
+    renderPk();
+  });
+  function setPkMode(mode) {
+    document.querySelectorAll('.pk__tabs button').forEach(b => b.classList.toggle('on', b.dataset.pkmode === mode));
+    pkProvEl.style.display = mode === 'prov' ? 'grid' : 'none';
+    pkCharEl.style.display = mode === 'char' ? 'grid' : 'none';
+  }
+  function pkBack() {
+    for (let i = pkMax() - 1; i >= 0; i--) {
+      if (PK.chars[i]) { PK.chars[i] = ''; break; }
+    }
+    renderPk();
+  }
+  function pkClear() {
+    PK.chars = [];
+    setPkMode('prov');
+    renderPk();
+  }
+  function toggleEnergy() {
+    PK.energy = !PK.energy;
+    PK.chars = PK.chars.slice(0, pkMax());
+    renderPk();
+    toast(PK.energy ? '已切换为新能源 8 位车牌' : '已切换为普通 7 位车牌');
+  }
+  function openPlate(target) {
+    PK.target = target;
+    PK.chars = [];
+    PK.energy = false;
+    setPkMode('prov');
+    renderPk();
+    plateMask.classList.add('show');
+  }
+  function closePlate(e) {
+    if (e && e.target !== plateMask) return;
+    plateMask.classList.remove('show');
+  }
+  function useRecentPlate(p) {
+    const raw = p.replace('·', '').split('');
+    PK.energy = raw.length === 8;
+    PK.chars = raw.slice(0, 8);
+    setPkMode('char');
+    renderPk();
+  }
+  function pkValue() {
+    const c = PK.chars.slice(0, pkMax());
+    return c[0] + c[1] + '·' + c.slice(2).join('');
+  }
+  function pkConfirm() {
+    const max = pkMax();
+    if (PK.chars.slice(0, max).some(x => !x)) { toast('车牌还没录完'); return; }
+    const plate = pkValue();
+    if (PK.target === 'user') {
+      setUserMode('plate');
+      const t = document.getElementById('userInputText');
+      t.className = 'pl';
+      t.textContent = plate;
+      document.getElementById('plateHit').style.display = 'flex';
+      document.getElementById('plateHitNo').textContent = plate;
+      toast('已按车牌 ' + plate + ' 匹配到 1 个账户');
+    } else if (PK.target === 'order') {
+      const el = document.getElementById('orderPlateText');
+      el.textContent = plate;
+      el.style.display = 'inline';
+      document.getElementById('orderPlatePh').style.display = 'none';
+      toast('已选择车牌 ' + plate);
+    } else if (PK.target === 'parking') {
+      setParkingPlate(plate);
+      toast('已选择车牌 ' + plate);
+    }
+    plateMask.classList.remove('show');
+  }
+  function setParkingPlate(plate) {
+    const el = document.getElementById('parkPlateText');
+    el.className = 'park-plate__v';
+    el.textContent = plate;
+    document.getElementById('parkPlate').classList.add('park-plate--set');
+    document.getElementById('parkPlateSub').textContent = '已选中 · 点击可更换';
+    document.getElementById('parkPayBtn').style.opacity = '1';
+  }
+  function parkFromOrder(plate) {
+    go('parking');
+    setParkingPlate(plate);
+    toast('已带入车牌 ' + plate + '，确认后可直接代缴');
+  }
+  function parkPay() {
+    const btn = document.getElementById('parkPayBtn');
+    if (btn.style.opacity !== '1') { toast('请先录入车牌'); return; }
+    const plate = document.getElementById('parkPlateText').textContent;
+    confirmAction('为 ' + plate + ' 代缴停车费？', '将从本门店停车账户按在场时长扣款，成功后车辆可直接离场。金额由停车系统结算，页面不展示。', '确认代缴', '代缴成功，已放行', 'brand');
+  }
+
+  /* 数值弹层（赠送余额 / 语音播报 / 拒绝原因） */
+  const sheetMask = document.getElementById('sheetMask');
+  const SHEETS = {
+    amount: { title: '赠送余额', sub: '赠送给 138****8000，到账后可用于洗车消费。', body: 'sheetAmount', ok: '确认赠送', done: '已赠送 ¥50.00，余额流水已记录' },
+    reject: { title: '审核拒绝', sub: '拒绝后不返现，原因会同步到用户端。', body: 'sheetReject', ok: '确认拒绝', done: '已拒绝，理由已同步用户端' },
+    voice: { title: '语音播报', sub: '现场单向播报，仅 3 号工位可听。', body: 'sheetVoice', ok: '发送播报', done: '已发送语音播报' },
+    towel: { title: '毛巾柜（预留）', sub: '3 号工位 · 共 20 扇柜门，可指定开启 · 本期不接入', body: 'sheetTowel', ok: '开启所选' }
+  };
+  let currentSheet = 'amount';
+  function openSheet(type) {
+    currentSheet = SHEETS[type] ? type : 'amount';
+    const conf = SHEETS[currentSheet];
+    document.getElementById('sheetTitle').textContent = conf.title;
+    document.getElementById('sheetSub').textContent = conf.sub;
+    ['sheetAmount', 'sheetReject', 'sheetVoice', 'sheetTowel'].forEach(id => {
+      document.getElementById(id).style.display = id === conf.body ? 'block' : 'none';
+    });
+    document.getElementById('sheetConfirm').textContent = conf.ok;
+    sheetMask.classList.add('show');
+  }
+  function closeMask(e) {
+    if (e && e.target !== sheetMask) return;
+    sheetMask.classList.remove('show');
+  }
+  function confirmSheet() {
+    const conf = SHEETS[currentSheet];
+    if (currentSheet === 'towel') {
+      const n = selectedDoors().length;
+      if (!n) { toast('请先选择要打开的柜门'); return; }
+      sheetMask.classList.remove('show');
+      toast(`已开启 ${n} 扇柜门，30 秒后自动关闭`);
+      return;
+    }
+    sheetMask.classList.remove('show');
+    toast(conf.done);
+  }
+
+  /* 毛巾柜柜门：5 列 × 4 行 = 20 扇，使用中的不可点 */
+  const DOOR_TOTAL = 20;
+  const DOOR_USED = [4, 9, 17];
+  const grid = document.getElementById('doorGrid');
+  grid.innerHTML = Array.from({ length: DOOR_TOTAL }, (_, i) => {
+    const n = i + 1;
+    const used = DOOR_USED.includes(n);
+    const num = String(n).padStart(2, '0');
+    return `<button class="door${used ? ' door--used' : ''}" data-door="${n}" ${used ? 'disabled' : ''}>
+      <span class="door__n">${num}</span><span class="door__s">${used ? '使用中' : '空闲'}</span>
+    </button>`;
+  }).join('');
+  function selectedDoors() {
+    return [...grid.querySelectorAll('.door.on')].map(el => el.dataset.door);
+  }
+  function syncDoors() {
+    grid.querySelectorAll('.door').forEach(el => {
+      const used = el.classList.contains('door--used');
+      el.querySelector('.door__s').textContent = used ? '使用中' : (el.classList.contains('on') ? '已选' : '空闲');
+    });
+    const n = selectedDoors().length;
+    document.getElementById('doorCount').textContent = n;
+    document.getElementById('doorAll').textContent = n === DOOR_TOTAL - DOOR_USED.length ? '清空' : '全选空闲';
+  }
+  grid.addEventListener('click', e => {
+    const btn = e.target.closest('.door');
+    if (!btn || btn.disabled) return;
+    btn.classList.toggle('on');
+    syncDoors();
+  });
+  function toggleAllDoors() {
+    const free = [...grid.querySelectorAll('.door:not(.door--used)')];
+    const allOn = free.every(el => el.classList.contains('on'));
+    free.forEach(el => el.classList.toggle('on', !allOn));
+    syncDoors();
+  }
+  syncDoors();
+
+  /* 危险 / 普通确认 */
+  const dangerMask = document.getElementById('dangerMask');
+  let dangerMsg = '';
+  function confirmDanger(title, text, okText, msg) {
+    confirmAction(title, text, okText, msg, 'danger');
+  }
+  function confirmAction(title, text, okText, msg, tone) {
+    const isDanger = tone !== 'brand';
+    document.getElementById('dialogBox').classList.toggle('dialog--info', !isDanger);
+    document.getElementById('dialogIc').textContent = isDanger ? '!' : '?';
+    document.getElementById('dangerTitle').textContent = title;
+    document.getElementById('dangerText').textContent = text;
+    document.getElementById('dangerOk').textContent = okText;
+    dangerMsg = msg;
+    dangerMask.classList.add('show');
+  }
+  function closeDanger(e) {
+    if (e && e.target !== dangerMask) return;
+    dangerMask.classList.remove('show');
+  }
+  document.getElementById('dangerOk').addEventListener('click', () => {
+    dangerMask.classList.remove('show');
+    toast(dangerMsg || '操作成功');
+  });
+
+  /* 环境切换 */
+  let env = 'prod';
+  function toggleEnv() {
+    env = env === 'prod' ? 'pre' : 'prod';
+    const isPre = env === 'pre';
+    document.getElementById('envText').textContent = isPre ? '预发环境（测试）' : '生产环境（线上）';
+    document.getElementById('envPill').textContent = isPre ? '预发' : '生产';
+    document.getElementById('envPill').className = 'nav__pill' + (isPre ? ' nav__pill--pre' : '');
+    toast(isPre ? '已切换到预发环境' : '已切换到生产环境');
+  }
+
+  /* 点击金额 / 预设项 */
+  document.querySelectorAll('.amt, .preset').forEach(el => {
+    el.addEventListener('click', () => {
+      el.parentNode.querySelectorAll('.amt, .preset').forEach(x => x.classList.remove('on'));
+      el.classList.add('on');
+    });
+  });
+
+  /* 支持 ?screen=station 直达某一屏，便于截图与评审 */
+  const init = new URLSearchParams(location.search).get('screen');
+  if (init && screens.includes(init)) go(init);
+  const params = new URLSearchParams(location.search);
+  if (params.get('mode') === 'plate') setUserMode('plate');
+  if (params.get('step') === '2') wxAuth(true);
+  if (params.get('plate')) {
+    openPlate(params.get('pk') || 'parking');
+    useRecentPlate(params.get('plate'));
+    if (params.get('apply') === '1') pkConfirm();
+  }
+  const initScroll = new URLSearchParams(location.search).get('scroll');
+  if (initScroll) {
+    const el = document.querySelector('.screen.is-active .scroll');
+    if (el) el.scrollTop = Number(initScroll) || 0;
+  }
+  const initSheet = new URLSearchParams(location.search).get('sheet');
+  if (initSheet) openSheet(initSheet);
+  /* ?doors=03,07 预选柜门，便于截图评审 */
+  const initDoors = new URLSearchParams(location.search).get('doors');
+  if (initDoors) {
+    initDoors.split(',').forEach(n => {
+      const el = grid.querySelector(`.door[data-door="${Number(n)}"]`);
+      if (el && !el.disabled) el.classList.add('on');
+    });
+    syncDoors();
+  }
+</script>
+</body>
+</html>

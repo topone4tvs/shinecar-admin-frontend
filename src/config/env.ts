@@ -1,0 +1,55 @@
+/**
+ * 环境配置管理
+ * 兼容微信小程序环境，不使用 process.env；环境在构建期由 TARO_APP_ENV 决定
+ */
+export type Environment = 'development' | 'pre' | 'production'
+
+export interface EnvConfig {
+  /** 后端基址 */
+  apiBaseUrl: string
+  /** 管理端接口前缀（C 端接口不加此前缀） */
+  adminApiPrefix: string
+  /** 资源服务器 */
+  assetBaseUrl: string
+  /** 当前小程序 appid */
+  wechatAppId: string
+  /** 是否输出调试日志 */
+  enableDebug: boolean
+}
+
+const normalizeEnv = (env: string): Environment => {
+  if (env === 'pre' || env === 'production') {
+    return env
+  }
+  return 'development'
+}
+
+export const CURRENT_ENV: Environment = normalizeEnv(__APP_ENV__)
+
+const envConfigs: Record<Environment, EnvConfig> = {
+  development: {
+    apiBaseUrl: 'http://127.0.0.1:8989',
+    adminApiPrefix: '/admin/v1',
+    assetBaseUrl: 'https://res.shinecar.club',
+    wechatAppId: 'wx4cb45f57b38380a7',
+    enableDebug: true,
+  },
+  pre: {
+    apiBaseUrl: 'https://pre-api.shinecar.club',
+    adminApiPrefix: '/admin/v1',
+    assetBaseUrl: 'https://res.shinecar.club',
+    wechatAppId: 'wx4cb45f57b38380a7',
+    enableDebug: true,
+  },
+  production: {
+    apiBaseUrl: 'https://api.shinecar.club',
+    adminApiPrefix: '/admin/v1',
+    assetBaseUrl: 'https://res.shinecar.club',
+    wechatAppId: 'wx4cb45f57b38380a7',
+    enableDebug: false,
+  },
+}
+
+export const getEnvConfig = (): EnvConfig => envConfigs[CURRENT_ENV]
+
+export const isDev = CURRENT_ENV === 'development'

@@ -1,0 +1,29 @@
+page {
+  box-sizing: border-box;
+  background: $bg;
+  color: $ink;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', Helvetica, sans-serif;
+  font-size: 28px;
+  line-height: 1.5;
+}
+
+view,
+text,
+button,
+input,
+textarea,
+scroll-view {
+  box-sizing: border-box;
+}
+
+button {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  font-size: inherit;
+  line-height: inherit;
+
+  &::after {
+    border: none;
+  }
+}

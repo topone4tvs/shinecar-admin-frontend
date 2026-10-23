@@ -1,0 +1,63 @@
+{
+  "name": "shinecar-admin-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "焕车掌柜 · 管理端小程序",
+  "templateInfo": {
+    "name": "vue3-pinia",
+    "typescript": true,
+    "css": "Sass",
+    "framework": "Vue3"
+  },
+  "scripts": {
+    "build:weapp": "taro build --type weapp",
+    "build:weapp:pre": "TARO_APP_ENV=pre taro build --type weapp",
+    "dev:weapp": "npm run build:weapp -- --watch",
+    "dev:weapp:pre": "TARO_APP_ENV=pre npm run build:weapp -- --watch",
+    "build:h5": "taro build --type h5",
+    "dev:h5": "npm run build:h5 -- --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --ext .vue,.ts src --fix"
+  },
+  "browserslist": [
+    "defaults and fully supports es6-module",
+    "maintained node versions"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@babel/runtime": "^7.7.7",
+    "@tarojs/components": "4.0.9",
+    "@tarojs/helper": "4.0.9",
+    "@tarojs/plugin-framework-vue3": "4.0.9",
+    "@tarojs/plugin-platform-weapp": "4.0.9",
+    "@tarojs/runtime": "4.0.9",
+    "@tarojs/shared": "4.0.9",
+    "@tarojs/taro": "4.0.9",
+    "dayjs": "^1.11.13",
+    "pinia": "^2.1.7",
+    "vue": "^3.2.24"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.8.0",
+    "@babel/plugin-proposal-class-properties": "7.14.5",
+    "@tarojs/cli": "4.0.9",
+    "@tarojs/taro-loader": "4.0.9",
+    "@tarojs/webpack5-runner": "4.0.9",
+    "@types/webpack-env": "^1.13.6",
+    "@typescript-eslint/eslint-plugin": "^6.2.0",
+    "@typescript-eslint/parser": "^6.2.0",
+    "@vue/babel-plugin-jsx": "^1.0.6",
+    "@vue/compiler-sfc": "^3.0.0",
+    "babel-preset-taro": "4.0.9",
+    "eslint": "^8.57.0",
+    "eslint-config-taro": "4.0.9",
+    "eslint-plugin-vue": "^8.0.0",
+    "postcss": "^8.4.18",
+    "sass": "^1.60.0",
+    "tsconfig-paths-webpack-plugin": "^4.0.1",
+    "typescript": "^5.1.0",
+    "vue-loader": "^17.0.0",
+    "webpack": "5.91.0"
+  }
+}

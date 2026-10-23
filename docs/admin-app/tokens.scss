@@ -1,0 +1,180 @@
+// ============================================================
+// 焕车掌柜 · 管理端小程序 设计变量（rpx）
+// 对应文档：docs/admin-app/02-UI设计规范.md
+// 使用：在 Taro config 里通过 sass.resource 注入本文件
+//   sass: { resource: [path.resolve(__dirname, '..', 'src/styles/tokens.scss')] }
+// 规则：页面样式中禁止写十六进制色值，一律引用本文件
+// ============================================================
+
+// ---------- 品牌 ----------
+$brand:        #E6436E;
+$brand-press:  #D33A61;
+$brand-deep:   #A82750;
+$brand-soft:   #FDEBEF;
+$brand-line:   #F3B6C8;
+
+// ---------- 中性 ----------
+$ink:          #1F2329;
+$ink-2:        #6B7280;
+$ink-3:        #9AA1A9;
+$ink-4:        #B9BFC7;
+$line:         #EEF0F2;
+$line-2:       #E4E7EB;
+$line-3:       #D6DBE2; // 虚线 / 预留态描边
+$bg:           #F7F8FA;
+$bg-deep:      #EEF0F3; // 仅用于文档/预览页背景
+$card:         #FFFFFF;
+$fill:         #F4F6F8;
+$fill-2:       #F9FAFB; // textarea 底
+
+// ---------- 状态：空闲（绿） ----------
+$idle-fill:    #EAF7E2;
+$idle-line:    #CBE9B8;
+$idle-ink:     #2F7A12;
+$idle-tag:     #F3FBEE;
+
+// ---------- 状态：使用中（橙） ----------
+$busy-fill:    #FFF6E2;
+$busy-line:    #F5DFB0;
+$busy-ink:     #8F5E00;
+$busy-tag:     #FFF9EC;
+
+// ---------- 状态：维护中（品牌玫红） ----------
+$repair-fill:  #FDEBEF;
+$repair-line:  #F3B6C8;
+$repair-ink:   #A82750;
+$repair-tag:   #FDEBEF;
+
+// ---------- 状态：下线/停用（灰） ----------
+$off-fill:     #F2F4F6;
+$off-line:     #E4E7EB;
+$off-ink:      #6B7280;
+$off-tag:      #F2F4F6;
+
+// ---------- 危险 ----------
+$danger:       #D93026;
+$danger-ink:   #B3241C;
+$danger-soft:  #FEF1F0;
+$danger-line:  #F6C9C5;
+$danger-icon:  #FADCD9;
+
+// ---------- 辅助功能色 ----------
+$green:        #52C41A;
+$orange:       #F9C055;
+$teal-soft:    #E8F5F2; // 通风
+$teal-ink:     #0F7B6C;
+$icon-soft:    #EAF3E5; // 设备类图标底
+$icon-ink:     #2F7A12;
+
+// ---------- 字体 ----------
+$font-family: 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+$font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+$fs-display:   70rpx; // 工位计时
+$fs-metric:    62rpx; // 预留：停车待缴金额（本期无金额展示）
+$fs-h1:        42rpx; // 统计数字
+$fs-h2:        40rpx; // 登录主标题
+$fs-h3:        34rpx; // 工位号 / 已结束订单金额 / 昵称
+$fs-h4:        32rpx; // 导航标题 / 弹层标题
+$fs-title:     28rpx; // 卡片标题 / 主按钮
+$fs-body:      26rpx;
+$fs-body-sm:   25rpx;
+$fs-caption:   23rpx;
+$fs-caption-sm:22rpx;
+$fs-micro:     21rpx;
+$fs-nano:      19rpx;
+
+$fw-regular:   400;
+$fw-medium:    500;
+$fw-semibold:  600;
+
+// ---------- 间距 ----------
+$sp-1:  8rpx;
+$sp-2:  16rpx;
+$sp-3:  24rpx;
+$sp-4:  32rpx;
+$sp-5:  40rpx;
+$sp-6:  48rpx;
+
+$page-x:        32rpx; // 页面左右边距
+$card-padding:  28rpx;
+$card-gap:      24rpx;
+$grid-gap:      16rpx;
+
+// ---------- 圆角 ----------
+$r-xs:    8rpx;
+$r-sm:   12rpx;
+$r-md:   16rpx;
+$r-lg:   20rpx;
+$r-xl:   24rpx;
+$r-2xl:  28rpx;
+$r-3xl:  32rpx;
+$r-sheet:36rpx;
+$r-full: 999rpx;
+
+// ---------- 描边 ----------
+$border-hairline: 1rpx solid $line;
+$border-input:    2rpx solid $line-2;
+$border-dashed:   2rpx dashed $line-3;
+
+// ---------- 阴影 ----------
+$shadow-card:   0 2rpx 8rpx rgba(23, 35, 61, .05);
+$shadow-float:  0 16rpx 44rpx rgba(23, 35, 61, .12);
+$shadow-sheet:  0 -16rpx 52rpx rgba(23, 35, 61, .12);
+$shadow-toast:  0 8rpx 24rpx rgba(0, 0, 0, .18);
+$mask:          rgba(20, 24, 30, .42);
+
+// ---------- 尺寸 ----------
+$nav-h:       88rpx;
+$tabbar-h:   112rpx;
+$btn-h:       84rpx;
+$btn-h-sm:    68rpx;
+$input-h:     80rpx;
+$field-h:     68rpx;
+$mini-btn-h:  40rpx;
+$icon-box:    64rpx; // 字符图标容器（圆角 $r-lg）
+$icon-box-sm: 56rpx; // 列表行图标
+$door-h:      92rpx;
+$kb-key-h:    78rpx;
+$kb-key-h-p:  74rpx;
+
+// ============================================================
+// Mixins
+// ============================================================
+
+@mixin card {
+  background: $card;
+  border-radius: $r-2xl;
+  padding: $card-padding;
+  margin-bottom: $card-gap;
+  box-shadow: $shadow-card;
+}
+
+@mixin ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@mixin tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/// 状态块：传入 fill / line / ink 三色
+@mixin state-block($fill, $line, $ink) {
+  background: $fill;
+  border: 2rpx solid $line;
+  color: $ink;
+}
+
+/// 按压反馈
+@mixin press($scale: .985) {
+  transition: transform 120ms ease;
+  &:active { transform: scale($scale); }
+}
+
+/// 安全区底部
+@mixin safe-bottom($extra: 0rpx) {
+  padding-bottom: calc(#{$extra} + env(safe-area-inset-bottom));
+}

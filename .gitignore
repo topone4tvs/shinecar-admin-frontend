@@ -1,0 +1,11 @@
+dist/
+deploy_versions/
+.temp/
+.tmp/
+.rn_temp/
+node_modules/
+.DS_Store
+.swc
+
+# 微信开发者工具的个人配置（含本机路径与私有编译选项）
+project.private.config.json

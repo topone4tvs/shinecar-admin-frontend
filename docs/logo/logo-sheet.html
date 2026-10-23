@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>焕车掌柜 · 标识提案</title>
+<style>
+  :root {
+    --brand: #E6436E;
+    --brand-deep: #C22B54;
+    --brand-soft: #FDEBEF;
+    --ink: #2B1A20;
+    --ink-2: #5C6672;
+    --ink-3: #9AA1A9;
+    --line: #E8EBEF;
+    --bg: #F5F6F8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 44px 32px 72px; background: var(--bg); color: var(--ink);
+    font-family: 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 980px; margin: 0 auto; }
+
+  .hd { margin-bottom: 22px; }
+  .hd h1 { font-size: 22px; font-weight: 600; margin: 0 0 7px; letter-spacing: -.2px; }
+  .hd p { font-size: 13px; color: var(--ink-2); margin: 0; line-height: 1.8; }
+
+  .card { background: #fff; border-radius: 18px; padding: 30px 34px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(23,35,61,.05); }
+  .card__hd { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 22px; }
+  .card__t { font-size: 12px; font-weight: 600; color: var(--ink-3); letter-spacing: .1em; text-transform: uppercase; }
+  .card__x { font-size: 11.5px; color: var(--ink-3); }
+
+  /* 横向主标 */
+  .lockup { display: flex; align-items: center; gap: 20px; padding: 16px 0 4px; }
+  .lockup svg { width: 96px; height: 96px; flex: 0 0 auto; display: block; }
+  .wm { display: flex; flex-direction: column; gap: 9px; }
+  .wm__n { font-size: 44px; font-weight: 600; letter-spacing: .04em; line-height: 1; white-space: nowrap; }
+  .wm__n em { font-style: normal; color: var(--brand); }
+  .wm__s { font-size: 10.5px; color: var(--ink-3); letter-spacing: .3em; font-weight: 500; text-transform: uppercase; }
+
+  /* 应用图标 */
+  .icons { display: flex; gap: 34px; align-items: flex-end; }
+  .ic { text-align: center; }
+  .ic svg { display: block; border-radius: 26%; box-shadow: 0 6px 16px rgba(196,44,84,.16); }
+  .ic--lg svg { width: 132px; height: 132px; }
+  .ic--md svg { width: 84px; height: 84px; }
+  .ic--sm svg { width: 56px; height: 56px; }
+  .ic span { display: block; font-size: 10.5px; color: var(--ink-3); margin-top: 9px; }
+
+  /* 竖式 / 反白 / 单色 */
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .tile { border-radius: 14px; padding: 26px 16px; display: flex; flex-direction: column; align-items: center; gap: 14px; min-height: 200px; justify-content: center; }
+  .tile--light { background: #FBFBFC; border: 1px solid var(--line); }
+  .tile--dark { background: var(--ink); }
+  .tile--soft { background: var(--brand-soft); }
+  .tile svg.main { width: 76px; height: 76px; }
+  .tile__n { font-size: 17px; font-weight: 600; letter-spacing: .1em; color: var(--ink); }
+  .tile__n em { font-style: normal; color: var(--brand); }
+  .tile--dark .tile__n { color: #fff; }
+  .tile--dark .tile__n em { color: #F7A3B9; }
+  .tile__k { font-size: 10.5px; color: var(--ink-3); letter-spacing: .08em; }
+  .tile--dark .tile__k { color: rgba(255,255,255,.45); }
+
+  /* 尺寸测试 */
+  .sizes { display: flex; align-items: flex-end; gap: 26px; padding-top: 4px; }
+  .sizes .sz { text-align: center; }
+  .sizes svg { display: block; border-radius: 24%; }
+  .sizes span { display: block; font-size: 10px; color: var(--ink-3); margin-top: 7px; }
+
+  /* 色板 */
+  .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .sw { border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+  .sw__c { height: 62px; }
+  .sw__m { padding: 9px 11px; background: #fff; }
+  .sw__n { font-size: 11.5px; font-weight: 500; }
+  .sw__h { font-size: 10px; color: var(--ink-3); font-family: ui-monospace, Menlo, monospace; margin-top: 2px; }
+
+  /* 说明 */
+  .notes { margin: 0; padding-left: 18px; }
+  .notes li { font-size: 12.5px; color: var(--ink-2); line-height: 2; }
+  .notes b { color: var(--ink); font-weight: 600; }
+
+  .alt { display: flex; align-items: center; gap: 16px; padding: 6px 0 2px; }
+  .alt svg { width: 64px; height: 64px; }
+  .alt p { margin: 0; font-size: 12px; color: var(--ink-2); line-height: 1.8; }
+  .alt b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="hd">
+    <h1>焕车掌柜 · 标识提案</h1>
+    <p>「掌柜之印，车轮为记」。外框是一枚印章，代表掌柜的身份与信物；里面是一个车轮，对应洗车业态。两者共用一条轮廓，缩到 32px 依然是一个清楚的圆环加十字辐条。整套标识只用一种品牌色，与「焕车生活」同源。</p>
+  </header>
+
+  <!-- 主标 -->
+  <section class="card">
+    <div class="card__hd"><span class="card__t">Primary Lockup 横向主标</span><span class="card__x">标识 + 字标</span></div>
+    <div class="lockup">
+      <svg viewBox="0 0 240 240" aria-label="焕车掌柜标识">
+        <use href="#mark"></use>
+      </svg>
+      <div class="wm">
+        <div class="wm__n">焕车<em>掌柜</em></div>
+        <div class="wm__s">Shinecar Keeper</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 应用图标 -->
+  <section class="card">
+    <div class="card__hd"><span class="card__t">App Icon 应用图标</span><span class="card__x">满版方形，圆角由平台裁切</span></div>
+    <div class="icons">
+      <div class="ic ic--lg"><svg viewBox="0 0 240 240"><use href="#icon"></use></svg><span>144 × 144 建议上传尺寸</span></div>
+      <div class="ic ic--md"><svg viewBox="0 0 240 240"><use href="#icon"></use></svg><span>列表页 84px</span></div>
+      <div class="ic ic--sm"><svg viewBox="0 0 240 240"><use href="#icon"></use></svg><span>48px 极限</span></div>
+    </div>
+  </section>
+
+  <!-- 变体 -->
+  <section class="card">
+    <div class="card__hd"><span class="card__t">Variants 组合与单色</span><span class="card__x">竖式 / 反白 / 单色</span></div>
+    <div class="three">
+      <div class="tile tile--light">
+        <svg class="main" viewBox="0 0 240 240"><use href="#mark"></use></svg>
+        <div class="tile__n">焕车<em>掌柜</em></div>
+        <div class="tile__k">竖式组合</div>
+      </div>
+      <div class="tile tile--dark">
+        <svg class="main" viewBox="0 0 240 240"><use href="#mark-white"></use></svg>
+        <div class="tile__n">焕车<em>掌柜</em></div>
+        <div class="tile__k">深色底反白</div>
+      </div>
+      <div class="tile tile--soft">
+        <svg class="main" viewBox="0 0 240 240"><use href="#mark-mono"></use></svg>
+        <div class="tile__n" style="color:#2B1A20">焕车<em style="color:#2B1A20">掌柜</em></div>
+        <div class="tile__k">单色（可烫金 / 丝印）</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 尺寸 -->
+  <section class="card">
+    <div class="card__hd"><span class="card__t">Scale 缩小测试</span><span class="card__x">128 / 96 / 64 / 48 / 32</span></div>
+    <div class="sizes">
+      <div class="sz"><svg width="128" height="128" viewBox="0 0 240 240"><use href="#icon"></use></svg><span>128</span></div>
+      <div class="sz"><svg width="96" height="96" viewBox="0 0 240 240"><use href="#icon"></use></svg><span>96</span></div>
+      <div class="sz"><svg width="64" height="64" viewBox="0 0 240 240"><use href="#icon"></use></svg><span>64</span></div>
+      <div class="sz"><svg width="48" height="48" viewBox="0 0 240 240"><use href="#icon"></use></svg><span>48</span></div>
+      <div class="sz"><svg width="32" height="32" viewBox="0 0 240 240"><use href="#icon"></use></svg><span>32</span></div>
+    </div>
+  </section>
+
+  <!-- 色板 -->
+  <section class="card">
+    <div class="card__hd"><span class="card__t">Color 色彩</span><span class="card__x">与「焕车生活」共用主色</span></div>
+    <div class="swatches">
+      <div class="sw"><div class="sw__c" style="background:#E6436E"></div><div class="sw__m"><div class="sw__n">品牌玫红</div><div class="sw__h">#E6436E</div></div></div>
+      <div class="sw"><div class="sw__c" style="background:#C22B54"></div><div class="sw__m"><div class="sw__n">深玫红</div><div class="sw__h">#C22B54</div></div></div>
+      <div class="sw"><div class="sw__c" style="background:#FDEBEF"></div><div class="sw__m"><div class="sw__n">浅粉底</div><div class="sw__h">#FDEBEF</div></div></div>
+      <div class="sw"><div class="sw__c" style="background:#2B1A20"></div><div class="sw__m"><div class="sw__n">墨色</div><div class="sw__h">#2B1A20</div></div></div>
+    </div>
+  </section>
+
+  <!-- 使用说明 -->
+  <section class="card">
+    <div class="card__hd"><span class="card__t">Usage 使用规范</span><span class="card__x">最小尺寸 32px</span></div>
+    <ol class="notes">
+      <li><b>安全边距：</b>标识四周留出不小于图形宽度 <b>1/4</b> 的空白，任何文字、线条不得进入。</li>
+      <li><b>最小尺寸：</b>应用图标不小于 <b>32px</b>；小于 48px 时只保留图形，不带字标。</li>
+      <li><b>不要做的事：</b>不要给标识加投影、描边、渐变；不要改变车轮旋转角度；不要把方孔改成圆形；不要用品牌玫红以外的底色。</li>
+      <li><b>加盟场景：</b>加盟商统一使用本标识，门店名以文字形式置于标识下方，不修改标识本身，避免“XX 加盟店”各自改标。</li>
+    </ol>
+    <div class="alt">
+      <svg viewBox="0 0 240 240"><use href="#mark-b"></use></svg>
+      <p><b>备选 B：</b>车轮下沉、加一条柜台线，更像“柜台后的掌柜”。<br>比主标多一点叙事，但缩小到 48px 时线会糊，所以作为备选保留。</p>
+    </div>
+  </section>
+
+</div>
+
+<!-- ===== 图形定义 ===== -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <!-- 主标：印章 + 车轮 -->
+    <symbol id="mark" viewBox="0 0 240 240">
+      <rect x="14" y="14" width="212" height="212" rx="58" fill="#E6436E"/>
+      <g stroke="#FFFFFF" fill="none">
+        <circle cx="120" cy="120" r="58" stroke-width="18"/>
+        <g stroke-width="13" stroke-linecap="round">
+          <line x1="138.6" y1="133.5" x2="158.0" y2="147.6"/>
+          <line x1="112.9" y1="141.9" x2="105.5" y2="164.7"/>
+          <line x1="97.0" y1="120.0" x2="73.0" y2="120.0"/>
+          <line x1="112.9" y1="98.1" x2="105.5" y2="75.3"/>
+          <line x1="138.6" y1="106.5" x2="158.0" y2="92.4"/>
+        </g>
+      </g>
+      <circle cx="120" cy="120" r="13" fill="#FFFFFF"/>
+    </symbol>
+
+    <!-- 满版图标 -->
+    <symbol id="icon" viewBox="0 0 240 240">
+      <rect width="240" height="240" fill="#E6436E"/>
+      <g stroke="#FFFFFF" fill="none">
+        <circle cx="120" cy="120" r="55" stroke-width="17"/>
+        <g stroke-width="12.5" stroke-linecap="round">
+          <line x1="138.6" y1="133.5" x2="157.2" y2="147.0"/>
+          <line x1="112.9" y1="141.9" x2="105.8" y2="163.7"/>
+          <line x1="97.0" y1="120.0" x2="74.0" y2="120.0"/>
+          <line x1="112.9" y1="98.1" x2="105.8" y2="76.3"/>
+          <line x1="138.6" y1="106.5" x2="157.2" y2="93.0"/>
+        </g>
+      </g>
+      <circle cx="120" cy="120" r="12.5" fill="#FFFFFF"/>
+    </symbol>
+
+    <!-- 反白 -->
+    <symbol id="mark-white" viewBox="0 0 240 240">
+      <rect x="14" y="14" width="212" height="212" rx="58" fill="#FFFFFF"/>
+      <g stroke="#2B1A20" fill="none">
+        <circle cx="120" cy="120" r="58" stroke-width="18"/>
+        <g stroke-width="13" stroke-linecap="round">
+          <line x1="138.6" y1="133.5" x2="158.0" y2="147.6"/>
+          <line x1="112.9" y1="141.9" x2="105.5" y2="164.7"/>
+          <line x1="97.0" y1="120.0" x2="73.0" y2="120.0"/>
+          <line x1="112.9" y1="98.1" x2="105.5" y2="75.3"/>
+          <line x1="138.6" y1="106.5" x2="158.0" y2="92.4"/>
+        </g>
+      </g>
+      <circle cx="120" cy="120" r="13" fill="#2B1A20"/>
+    </symbol>
+
+    <!-- 单色 -->
+    <symbol id="mark-mono" viewBox="0 0 240 240">
+      <rect x="14" y="14" width="212" height="212" rx="58" fill="none" stroke="#2B1A20" stroke-width="10"/>
+      <g stroke="#2B1A20" fill="none">
+        <circle cx="120" cy="120" r="55" stroke-width="16"/>
+        <g stroke-width="12" stroke-linecap="round">
+          <line x1="138.6" y1="133.5" x2="157.2" y2="147.0"/>
+          <line x1="112.9" y1="141.9" x2="105.8" y2="163.7"/>
+          <line x1="97.0" y1="120.0" x2="74.0" y2="120.0"/>
+          <line x1="112.9" y1="98.1" x2="105.8" y2="76.3"/>
+          <line x1="138.6" y1="106.5" x2="157.2" y2="93.0"/>
+        </g>
+      </g>
+      <circle cx="120" cy="120" r="12.5" fill="#2B1A20"/>
+    </symbol>
+
+    <!-- 备选 B：加柜台线 -->
+    <symbol id="mark-b" viewBox="0 0 240 240">
+      <rect x="14" y="14" width="212" height="212" rx="58" fill="#E6436E"/>
+      <g stroke="#FFFFFF" fill="none">
+        <circle cx="120" cy="108" r="50" stroke-width="16"/>
+        <g stroke-width="12" stroke-linecap="round">
+          <line x1="137.0" y1="120.3" x2="151.6" y2="130.9"/>
+          <line x1="113.5" y1="128.0" x2="107.9" y2="145.1"/>
+          <line x1="99.0" y1="108.0" x2="81.0" y2="108.0"/>
+          <line x1="113.5" y1="88.0" x2="107.9" y2="70.9"/>
+          <line x1="137.0" y1="95.7" x2="151.6" y2="85.1"/>
+        </g>
+      </g>
+      <circle cx="120" cy="108" r="12" fill="#FFFFFF"/>
+      <rect x="72" y="171" width="96" height="15" rx="7.5" fill="#FFFFFF"/>
+    </symbol>
+  </defs>
+</svg>
+</body>
+</html>
