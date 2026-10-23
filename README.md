@@ -75,7 +75,11 @@ mock 与真实接口共用 `src/utils/request.ts`，只有一处分支（`reques
 
 **① `dist/` 是 git 忽略的产物，切分支不会自动更新。** 从 trace 工作区或旧分支打开项目时，`dist/` 可能还是切换前的代码，开发者工具里就会看到上一个版本（典型症状：登录页只剩「焕车掌柜 / 管理端脚手架已就绪 / 当前环境 / 接口基址」几行字）。**换目录或换分支后，必须先 `yarn dev:weapp` 重新构建，再在开发者工具里点「编译」。**
 
-**② 多份工作区只留一份在开发者工具里。** 主仓库 `projects/shinecar-admin-frontend` 与 `sc_workspace/worktrees/<trace>/shinecar_admin_frontend` 是同一仓库的不同工作树，各自维护自己的 `dist/`。同时打开两个容易看错版本，建议只保留主仓库这一个项目。
+**② 用 `sc_workspace/preview/shinecar_admin_frontend` 作为固定入口。** 那是个壳目录，
+里面的 `dist/` 由 `bin/wtm appdev` 从当前 trace 同步过来；换需求只要 `bin/wtm appdev use <trace>`，
+不用重新导入项目。主仓库与各 trace 自己的 `dist/` 都别再单独开进工具，否则一定会看错版本。
+注意微信开发者工具**不跟随软链**（`miniprogramRoot` 指向软链会报「未找到 app.json」），
+所以壳目录里的 `dist` 必须是真实拷贝，不能是软链。
 
 正确版本的登录页首屏应包含：粉红圆角「焕」字标 → 大标题「焕车掌柜」→ 副标题「门店运维 · 管理端」→ 白色卡片（步骤 1「微信授权登录」+ 粉红按钮「微信一键授权」）。
 
@@ -93,6 +97,7 @@ src/
   utils/request.ts      统一请求（Bearer / 幂等键 / 401 处理 / GET 重试 / mock 分支）
   utils/error.ts        ApiError
   utils/format.ts       时长 / 金额 / 时间格式化
+  utils/input.ts        表单取值（避开 Taro v-model 的坑）
   utils/token.ts        admin_token 读写
   api/                  接口封装，按域拆分
   mock/                 无后端时的示例数据与路由分发（production 不生效）
@@ -120,6 +125,31 @@ Taro 4 的小程序渲染器没有实现 Vue 的 `setScopeId`，元素上永远�
 
 另：控制台的 `[渲染层错误] Listener added for a 'DOMNodeRemoved' mutation event...` 是开发者工具渲染层的兼容性提示，
 与本项目代码无关，不影响渲染，忽略即可。
+
+## 表单取值（踩过坑）
+
+**不要用 `v-model` 绑 `<input>`，一律 `:value` + `@input` + `inputValue()`。**
+
+Taro 4 在微信端给 `v-model` 绑定的 ref 赋的**不是字符串，而是输入事件对象**，
+于是 `phone.value.trim()` 直接抛 `TypeError: xxx.trim is not a function`（登录页实测，
+点「登录」必崩；但输入框本身的显示是正常的，很容易误判成绑定没生效）。
+
+```vue
+<input :value="phone" type="number" maxlength="11" @input="onPhoneInput" />
+```
+
+```ts
+import { inputValue } from '@/utils/input'
+
+const onPhoneInput = (event: unknown) => {
+  phone.value = inputValue(event)
+}
+```
+
+`inputValue()` 兼容「事件对象 / `detail.value` / `target.value`」三种形态，
+并把 `type="number"` 可能给出的数字统一转成字符串，保证后续 `.trim()`、正则安全。
+
+C 端项目里也用了 `v-model`，但那边从没对值调用过 `.trim()`，所以问题一直没暴露——不代表这写法可用。
 
 ## 文档
 
