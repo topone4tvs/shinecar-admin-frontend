@@ -48,7 +48,7 @@
       >
         <view class="st__top">
           <text class="st__idx">{{ stationNo(item) }}<text class="st__unit">号</text></text>
-          <text class="st__state"><text class="st__dot" />{{ statusText(item.status) }}</text>
+          <text class="st__state"><text class="st__dot" />{{ statusText(item) }}</text>
         </view>
         <text class="st__sub">{{ describe(item) }}</text>
       </view>
@@ -64,16 +64,7 @@
       <text class="empty__desc">该门店未配置额外的门店工具</text>
     </view>
 
-    <!-- 门店工具：管理员开单是固定入口（与能力配置无关），其余由能力配置下发 -->
-    <view class="tool" @tap="notifyCreatePending">
-      <text class="tool__ic">开</text>
-      <view class="tool__body">
-        <text class="tool__t">管理员开单</text>
-        <text class="tool__s">独立开单命令，功能开发中</text>
-      </view>
-      <text class="tool__arrow">›</text>
-    </view>
-
+    <!-- 门店工具：全部由能力配置下发（本期只有停车缴费） -->
     <view v-for="cap in shopCaps" :key="cap.key" class="tool" @tap="openTool(cap)">
       <text class="tool__ic">{{ cap.icon }}</text>
       <view class="tool__body">
@@ -84,8 +75,8 @@
     </view>
 
     <text class="scope-note">
-      管理员开单是所有门店通用的固定入口（功能开发中）；停车缴费等工具由该门店的能力配置下发，未启用则不显示。
-      设备类操作（通风、毛巾柜）在工位详情里。
+      门店工具由该门店的能力配置下发，未启用则不显示。
+      设备类操作（开门、通电保养、通风、毛巾柜）在工位详情里。
     </text>
 
     <!-- 底部悬浮切店条：切店入口只在这里 -->
@@ -162,7 +153,14 @@ let timer: ReturnType<typeof setInterval> | null = null
 
 const envText = CURRENT_ENV === 'production' ? '生产' : CURRENT_ENV === 'pre' ? '预发' : '开发'
 
-const statusText = (status: StationStatus) => STATUS_TEXT[status] || '未知'
+/**
+ * 状态词。四状态口径不变（01 §6.1），通电只是叠加维度：
+ * 维护中 + 通电 = 保养中，仅换展示词，不新增状态、不参与汇总计数。
+ */
+const statusText = (station: Station) => {
+  if (station.status === 'repair' && station.power_state === 'on') return '保养中'
+  return STATUS_TEXT[station.status] || '未知'
+}
 
 /** 门店工具：placement=shop 的能力（停车缴费） */
 const shopCaps = computed(() =>
@@ -186,8 +184,16 @@ const describe = (station: Station) => {
     const tail = station.plate_tail ? ` · 尾号 ${station.plate_tail}` : ''
     return `已洗 ${elapsedOf(station)}${tail}`
   }
-  if (station.status === 'repair') return `${station.maintenance_at || ''} 由${station.maintenance_by || '总部'}设置`
+  if (station.status === 'repair') {
+    // 通电中优先说保养，维护人和时间退居其次（保养才是现场正在发生的事）
+    if (station.power_state === 'on') {
+      const at = station.power_at ? clockOf(station.power_at) : ''
+      return at ? `保养中 · ${at} 起通电` : '保养中 · 通电中'
+    }
+    return `${station.maintenance_at || ''} 由${station.maintenance_by || '总部'}设置`
+  }
   if (station.status === 'off') return '不参与排班'
+  if (station.power_state === 'on') return '通电中 · 待断电'
   return '等待使用'
 }
 
@@ -277,11 +283,6 @@ const chooseShop = async (target: Shop) => {
 
 const openDetail = (station: Station) => {
   Taro.navigateTo({ url: `/packageStation/pages/station-detail/index?id=${station.id}` })
-}
-
-/** 管理员开单：独立命令，实现待定，先只提示，避免点了没反应 */
-const notifyCreatePending = () => {
-  tip('管理员开单功能开发中')
 }
 
 const openTool = (cap: Capability) => {

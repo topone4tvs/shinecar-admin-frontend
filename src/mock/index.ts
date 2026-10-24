@@ -262,6 +262,29 @@ const routes: Route[] = [
   },
   {
     method: 'POST',
+    pattern: /^\/stations\/(\d+)\/power$/,
+    handler: ({ params, data }): { station: Station; message: string } => {
+      const admin = requireAdmin()
+      const station = runtime.stations.find(s => s.id === Number(params[0]))
+      if (!station) throw new ApiError(40404, '工位不存在')
+      const action = String(data?.action || '')
+      if (action !== 'on' && action !== 'off') throw new ApiError(40011, 'action 只能是 on 或 off')
+      if (station.status === 'busy') throw new ApiError(41100, '工位有进行中的订单，请先结束订单')
+      // 与后端一致：通电要求先维护中，断电不要求
+      if (action === 'on' && station.status !== 'repair') {
+        throw new ApiError(41100, '请先将工位设为维护中，再通电保养')
+      }
+      station.power_state = action
+      station.power_at = new Date().toISOString()
+      station.power_by = admin.name
+      return {
+        station,
+        message: action === 'on' ? '已下发通电指令' : '已下发断电指令',
+      }
+    },
+  },
+  {
+    method: 'POST',
     pattern: /^\/stations\/(\d+)\/commands$/,
     handler: ({ params, data }) => {
       requireAdmin()

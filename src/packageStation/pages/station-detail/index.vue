@@ -84,13 +84,8 @@
       </view>
 
       <view v-else class="card card--muted">
-        <text class="card__t">当前无使用中的订单</text>
-        <text class="card__desc">
-          {{ detail.status === 'repair' ? '工位处于维护中，用户端已下线。' : '工位空闲，等待用户扫码开单。' }}
-        </text>
-        <button v-if="detail.status === 'idle'" class="btn btn--brand btn--inline" @tap="notifyCreatePending">
-          管理员开单
-        </button>
+        <text class="card__t">{{ powerOn ? '保养中' : '当前无使用中的订单' }}</text>
+        <text class="card__desc">{{ emptyDesc }}</text>
       </view>
 
       <!-- 基础操作：所有门店通用 -->
@@ -110,7 +105,7 @@
         </view>
         <view
           class="act act--danger"
-          :class="{ 'act--disabled': acting || !detail.order }"
+          :class="{ 'act--disabled': acting || !detail.order || powerOn }"
           @tap="doFinish"
         >
           <text class="act__ic">停</text>
@@ -119,6 +114,15 @@
         <view class="act" :class="{ 'act--busy': acting }" @tap="doMaintenance">
           <text class="act__ic">维</text>
           <text class="act__t">{{ detail.status === 'repair' ? '解除维护' : '设为维护' }}</text>
+        </view>
+        <!-- 通电不是开单：不产生订单、不计费，通电前工位必须先是维护中 -->
+        <view
+          class="act"
+          :class="{ 'act--busy': acting, 'act--on': powerOn }"
+          @tap="doPower"
+        >
+          <text class="act__ic">{{ powerOn ? '断' : '电' }}</text>
+          <text class="act__t">{{ powerOn ? '断电' : '通电' }}</text>
         </view>
       </view>
 
@@ -187,7 +191,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
-import { fetchStation, sendCommand, setMaintenance } from '@/api/shop'
+import { fetchStation, sendCommand, setMaintenance, setStationPower } from '@/api/shop'
 import { finishOrder } from '@/api/order'
 import type { Capability, StationDetail } from '@/types/api'
 import { formatClock, formatDuration, formatMoney } from '@/utils/format'
@@ -216,6 +220,19 @@ let timer: ReturnType<typeof setInterval> | null = null
 /** 扩展设备：placement=station 的能力；本期只有 ventilation，毛巾柜等未 seed 即不出现 */
 const deviceCaps = computed(() => detail.value?.capabilities || [])
 
+/** 通电态：与 status 正交，维护中 + 通电 = 保养中 */
+const powerOn = computed(() => detail.value?.power_state === 'on')
+
+/** 已通电时长：通电没有超时保护，界面必须持续显示，防止「忘了断电」 */
+const powerElapsedText = computed(() => {
+  if (!powerOn.value) return ''
+  const start = detail.value?.power_at ? new Date(detail.value.power_at).getTime() : NaN
+  if (Number.isNaN(start)) return '已通电'
+  const diff = Math.floor((now.value - start) / 1000)
+  if (diff < 60) return '刚刚通电'
+  return `已通电 ${formatDuration(diff)}`
+})
+
 const orderPlate = computed(() => {
   const plates = detail.value?.order?.user.plates || []
   return plates.find(p => p.is_order)?.plate_no || plates[0]?.plate_no || '—'
@@ -233,7 +250,7 @@ const elapsedSeconds = computed(() => {
 const heroStateText = computed(() => {
   const status = detail.value?.status
   if (status === 'busy') return `使用中 · 已洗 ${formatDuration(elapsedSeconds.value)}`
-  if (status === 'repair') return '维护中 · 用户端已下线'
+  if (status === 'repair') return powerOn.value ? '保养中 · 已通电' : '维护中 · 用户端已下线'
   if (status === 'off') return '已下线'
   return '空闲 · 等待使用'
 })
@@ -241,7 +258,7 @@ const heroStateText = computed(() => {
 const heroMetric = computed(() => {
   const status = detail.value?.status
   if (status === 'busy') return formatDuration(elapsedSeconds.value)
-  if (status === 'repair') return '维护中'
+  if (status === 'repair') return powerOn.value ? '保养中' : '维护中'
   if (status === 'off') return '已下线'
   return '空闲'
 })
@@ -251,13 +268,23 @@ const heroSub = computed(() => {
   if (!d) return ''
   if (d.status === 'busy' && d.started_at) return `${d.shop_name} · 开始于 ${formatClock(d.started_at)}`
   if (d.status === 'repair') {
-    return `${d.shop_name} · ${d.maintenance_at || ''} 由${d.maintenance_by || '总部'}设置`
+    const base = `${d.shop_name} · ${d.maintenance_at || ''} 由${d.maintenance_by || '总部'}设置`
+    return powerOn.value ? `${base} · ${powerElapsedText.value}` : base
   }
   return `${d.shop_name} · 今日暂无订单`
 })
 
-const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1800 })
+/** 无订单时的空态说明：保养中优先，其次维护中，最后空闲 */
+const emptyDesc = computed(() => {
+  if (powerOn.value) {
+    return `设备${powerElapsedText.value}，保养完成后请先断电，再解除维护。`
+  }
+  if (detail.value?.status === 'repair') return '工位处于维护中，用户端已下线。'
+  if (detail.value?.status === 'off') return '工位已下线，不参与排班。'
+  return '工位空闲，等待用户扫码开单。'
+})
 
+const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1800 })
 const load = async () => {
   if (!stationId) {
     loading.value = false
@@ -298,11 +325,6 @@ const goParking = (plate: string) => {
   Taro.navigateTo({
     url: `/packageStation/pages/parking/index?shop_id=${shopId}&plate=${encodeURIComponent(plate)}`,
   })
-}
-
-/** 管理员开单：独立命令，实现待定，先只提示（不走 C 端开单流程） */
-const notifyCreatePending = () => {
-  tip('管理员开单功能开发中')
 }
 
 /** 开门：L2，一次性指令，只承诺已下发 */
@@ -346,6 +368,11 @@ const doVoice = async () => {
 /** 结束订单：L3，红色确认按钮 + 影响面文案，不可撤回 */
 const doFinish = async () => {
   if (!detail.value || acting.value) return
+  // 通电保养态下禁止结束订单：既无单可结，也防误触把保养中的工位当成订单处理
+  if (powerOn.value) {
+    tip('保养中，没有可结束的订单')
+    return
+  }
   const order = detail.value.order
   if (!order) {
     tip('当前工位没有进行中的订单')
@@ -383,6 +410,12 @@ const doMaintenance = async () => {
     return
   }
 
+  // 收尾顺序必须是「先断电，再解除维护」：反了会让带电的工位提前对用户开放
+  if (!enable && powerOn.value) {
+    tip('设备还在通电，请先断电再解除维护')
+    return
+  }
+
   const res = await Taro.showModal({
     title: enable ? `将 ${station.name}工位设为维护中？` : `解除 ${station.name}工位的维护？`,
     content: enable
@@ -400,6 +433,47 @@ const doMaintenance = async () => {
     await load()
   } catch (error) {
     tip(error instanceof ApiError ? error.message : '操作失败')
+  } finally {
+    acting.value = false
+  }
+}
+
+/**
+ * 通断电（维护保养）。
+ * 通电不是开单：不产生订单、不计费，只下发 power_on；
+ * 通电前必须先是维护中，否则用户端还能扫码开单，会和保养抢设备。
+ */
+const doPower = async () => {
+  if (!detail.value || acting.value) return
+  const station = detail.value
+  const enable = !powerOn.value
+
+  if (station.order) {
+    tip('工位有进行中的订单，请先结束订单')
+    return
+  }
+  if (enable && station.status !== 'repair') {
+    tip('请先将工位设为维护中，再通电保养')
+    return
+  }
+
+  const res = await Taro.showModal({
+    title: enable ? `给 ${station.name}工位通电？` : `给 ${station.name}工位断电？`,
+    content: enable
+      ? '通电用于维护保养，不会产生订单，也不会计费。以设备实际状态为准。'
+      : '断电后设备停止运行。保养结束请先断电，再解除维护。',
+    confirmText: enable ? '通电' : '断电',
+    confirmColor: enable ? '#E6436E' : '#D93026',
+  })
+  if (!res.confirm) return
+
+  acting.value = true
+  try {
+    const out = await setStationPower(station.id, enable ? 'on' : 'off')
+    tip(out.message)
+    await load()
+  } catch (error) {
+    tip(error instanceof ApiError ? error.message : '指令下发失败')
   } finally {
     acting.value = false
   }
@@ -796,6 +870,19 @@ useDidShow(() => {
   }
 
   &--busy { opacity: 0.55; }
+
+  /* 通电态：用警示色，让「还通着电」在现场一眼可见 */
+  &--on {
+    background: $warn-soft;
+    border-color: $warn-line;
+
+    .act__ic {
+      background: $warn-line;
+      color: $warn;
+    }
+
+    .act__t { color: $warn; }
+  }
 
   &--disabled {
     opacity: 0.45;

@@ -20,6 +20,17 @@ export const fetchStation = (stationId: number) => get<StationDetail>(`/stations
 export const setMaintenance = (stationId: number, action: 'set' | 'clear') =>
   post<Station>(`/stations/${stationId}/maintenance`, { action })
 
+/**
+ * 工位通断电（维护保养用）。
+ * 不是开单：不产生订单、不计费。通电要求工位先处于维护中，且工位不能有进行中订单。
+ */
+export const setStationPower = (stationId: number, action: 'on' | 'off') =>
+  post<{ station: Station; message: string }>(
+    `/stations/${stationId}/power`,
+    { action },
+    { timeout: 8000 },
+  )
+
 /** 统一设备命令入口：开门 / 语音 / 通风 / 毛巾柜 */
 export const sendCommand = (
   stationId: number,

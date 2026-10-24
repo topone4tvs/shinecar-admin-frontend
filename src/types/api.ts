@@ -41,7 +41,18 @@ export interface Station {
   /** repair 时有效 */
   maintenance_at?: string
   maintenance_by?: string
+  /**
+   * 通电状态：on / off，缺省表示从未操作过。
+   * 与 status 正交——通电不改变四状态口径，维护中 + 通电 = 保养中。
+   */
+  power_state?: PowerState
+  /** 最近一次通断电下发时间（RFC3339），用于算「已通电多久」 */
+  power_at?: string
+  power_by?: string
 }
+
+/** 通断电状态词 */
+export type PowerState = 'on' | 'off'
 
 /** 门店能力项：由 admin_capabilities 配置下发，未启用的门店不显示 */
 export interface Capability {
