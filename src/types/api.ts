@@ -103,7 +103,12 @@ export interface StationDetail extends Station {
   order: StationOrder | null
 }
 
-export type OrderStatus = 'ongoing' | 'done' | 'refunded'
+/**
+ * 订单状态：进行中 / 已完成 / 已取消。
+ * 库里的 status 是 1/2/3，后端映射成这三个词；已取消的单也允许被查到
+ * （现场常要解释「这单为什么没扣钱」）。
+ */
+export type OrderStatus = 'ongoing' | 'done' | 'canceled'
 
 export interface OrderItem {
   id: number
@@ -121,11 +126,25 @@ export interface OrderItem {
   amount?: number
 }
 
+/** 费用构成，只有已结束订单才有非零值 */
+export interface OrderFee {
+  total_fee: number
+  balance: number
+  experience_minutes: number
+  night_discount: number
+  new_user_minutes: number
+}
+
 export interface OrderDetail extends OrderItem {
   user_id: number
   nickname: string
   pay_status: 'unpaid' | 'paid' | 'free'
   pay_text: string
+  fee: OrderFee
+  /** 代缴停车费的时间；空表示还没代缴过 */
+  parking_paid_at?: string
+  can_finish: boolean
+  can_pay_parking: boolean
 }
 
 export type ReviewStatus = 'pending' | 'draft' | 'approved' | 'rejected'
@@ -151,12 +170,17 @@ export interface ReviewItem {
 export interface UserDetail {
   id: number
   nickname: string
+  /** 完整手机号，管理端可见（现场要打电话） */
+  phone: string
   phone_masked: string
   balance: number
+  /** 累计赠送金额（元）。余额表不区分本金与赠送，所以只能展示累计值 */
   give_balance: number
   plate_no?: string
+  vehicles: string[]
   order_count: number
   last_order_at?: string
+  is_newer: boolean
 }
 
 /**

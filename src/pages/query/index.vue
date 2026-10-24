@@ -54,6 +54,11 @@
       <text class="result-head__count">共 {{ total }} 条</text>
     </view>
 
+    <!-- 后端单次最多回 50 条：条件太宽时明确告诉用户看到的是截断结果 -->
+    <view v-if="searched && !loading && total > list.length" class="result-note">
+      仅显示最近 {{ list.length }} 条，请加手机号或车牌缩小范围
+    </view>
+
     <view v-if="!searched && !loading" class="hint">
       <text class="hint__text">输入手机号或车牌后搜索</text>
     </view>
@@ -114,7 +119,7 @@ const RANGES: Array<{ key: 'today' | '7d' | 'all'; label: string }> = [
 const STATE_TEXT: Record<OrderStatus, string> = {
   ongoing: '进行中',
   done: '已完成',
-  refunded: '已退款',
+  canceled: '已取消',
 }
 
 const range = ref<'today' | '7d' | 'all'>('7d')
@@ -334,6 +339,16 @@ usePullDownRefresh(async () => {
     color: $ink-3;
     @include tabular;
   }
+}
+
+.result-note {
+  margin-bottom: 16rpx;
+  padding: 16rpx 20rpx;
+  border-radius: $r-md;
+  background: $warn-soft;
+  color: $warn;
+  font-size: $fs-caption-sm;
+  line-height: 1.6;
 }
 
 .hint {

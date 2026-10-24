@@ -393,12 +393,23 @@ const routes: Route[] = [
       const order = runtime.orders.find(o => o.id === Number(params[0]))
       if (!order) throw new ApiError(40405, '订单不存在')
       const payState = order.status === 'ongoing' ? 'unpaid' : order.amount === 0 ? 'free' : 'paid'
+      const finished = order.status === 'done'
       return {
         ...order,
         user_id: 500 + order.id,
         nickname: NICKNAMES[order.id] || '用户',
         pay_status: payState,
         pay_text: payState === 'unpaid' ? '未结算' : payState === 'free' ? '免费' : '已支付',
+        fee: {
+          total_fee: finished ? order.amount || 0 : 0,
+          balance: finished ? order.amount || 0 : 0,
+          experience_minutes: 0,
+          night_discount: 0,
+          new_user_minutes: 0,
+        },
+        parking_paid_at: undefined,
+        can_finish: order.status === 'ongoing',
+        can_pay_parking: Boolean(order.plate_no),
       }
     },
   },
