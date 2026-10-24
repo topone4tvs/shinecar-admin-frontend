@@ -184,6 +184,23 @@ export interface UserDetail {
 }
 
 /**
+ * 手动开单第一步：按手机号查到的用户概要（GET /users?phone=）。
+ * 与 UserDetail 的差别：不含完整手机号（号码是操作员自己输的），
+ * 但额外给出「还在洗的订单」，让开单页能提前拦住。
+ */
+export interface UserBrief {
+  id: number
+  nickname: string
+  phone_masked: string
+  balance: number
+  vehicles: string[]
+  order_count: number
+  is_newer: boolean
+  /** 该用户当前进行中的订单；有值时不允许再开单 */
+  working_order_id?: number
+}
+
+/**
  * 停车代缴记录：只记车牌、时间、操作人。
  * 停车系统既不提供查询接口，也不回传金额，所以这里**没有金额字段**。
  */

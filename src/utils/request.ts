@@ -62,6 +62,24 @@ const handleUnauthorized = (code: number, message: string) => {
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 /**
+ * 清掉查询参数里的 undefined / null。
+ *
+ * 小程序 wx.request 对对象形式的 data 会自己拼 query string，把 undefined 拼成**字面量** `plate=undefined`
+ * （真机抓包实测）。后端把它当成筛选条件，就永远查不到结果——这种“有值但查不到”最难排查。
+ * POST 走 JSON.stringify 时 undefined 本来就会被丢掉，所以只处理 GET。
+ */
+const compactQuery = (data?: Record<string, any>): Record<string, any> | undefined => {
+  if (!data) return data
+  const out: Record<string, any> = {}
+  Object.keys(data).forEach(key => {
+    const value = data[key]
+    if (value === undefined || value === null) return
+    out[key] = value
+  })
+  return out
+}
+
+/**
  * 统一请求入口。
  * 约定：不自动 toast（列表页内联展示、操作类由调用方 toast），只抛 ApiError。
  *
@@ -88,7 +106,7 @@ export async function request<T = unknown>(options: RequestOptions): Promise<T> 
     Taro.request<ApiEnvelope<T>>({
       url: buildUrl(url),
       method,
-      data,
+      data: method === 'GET' ? compactQuery(data) : data,
       header,
       timeout,
     })

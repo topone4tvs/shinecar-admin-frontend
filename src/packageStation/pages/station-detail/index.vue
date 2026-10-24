@@ -88,6 +88,9 @@
         <text class="card__desc">
           {{ detail.status === 'repair' ? '工位处于维护中，用户端已下线。' : '工位空闲，等待用户扫码开单。' }}
         </text>
+        <button v-if="detail.status === 'idle'" class="btn btn--brand btn--inline" @tap="goCreate">
+          手动开单
+        </button>
       </view>
 
       <!-- 基础操作：所有门店通用 -->
@@ -294,6 +297,15 @@ const goParking = (plate: string) => {
   const shopId = detail.value?.shop_id || 0
   Taro.navigateTo({
     url: `/packageStation/pages/parking/index?shop_id=${shopId}&plate=${encodeURIComponent(plate)}`,
+  })
+}
+
+/** 代客开单：带上当前工位，开单页不用再选 */
+const goCreate = () => {
+  const d = detail.value
+  if (!d) return
+  Taro.navigateTo({
+    url: `/packageOrder/pages/create/index?shop_id=${d.shop_id}&station_id=${d.id}`,
   })
 }
 
@@ -906,6 +918,11 @@ useDidShow(() => {
   &--brand {
     background: $brand;
     color: #FFFFFF;
+  }
+
+  /* 卡片内的行内按钮：给上方文案留出间距 */
+  &--inline {
+    margin-top: 24rpx;
   }
 
   &[disabled] {

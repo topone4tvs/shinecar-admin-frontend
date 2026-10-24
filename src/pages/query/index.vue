@@ -66,7 +66,9 @@
     <view v-if="loading" class="hint"><text class="hint__text">查询中…</text></view>
 
     <view v-else-if="searched && !list.length" class="hint">
-      <text class="hint__text">没有符合条件的订单</text>
+      <text class="hint__text">
+        没有符合条件的订单{{ range === 'all' ? '' : '，可以切到「全部」再试一次' }}
+      </text>
     </view>
 
     <view v-for="item in list" :key="item.id" class="order" @tap="openOrder(item)">
@@ -89,7 +91,7 @@
         </view>
       </view>
 
-      <view class="order__meta">用户 {{ item.user_phone_masked }} · 车牌 {{ item.plate_no }}</view>
+      <view class="order__meta">用户 {{ item.user_phone_masked }} · 车牌 {{ item.plate_no || '—' }}</view>
 
       <view class="order__foot">
         <text v-if="item.status === 'ongoing'" class="order__tip">进行中不计费</text>

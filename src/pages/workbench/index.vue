@@ -61,7 +61,17 @@
     </view>
 
     <view v-if="!shopCaps.length" class="empty empty--inline">
-      <text class="empty__desc">该门店未启用门店级工具</text>
+      <text class="empty__desc">该门店未配置额外的门店工具</text>
+    </view>
+
+    <!-- 门店工具：手动开单是固定入口（与能力配置无关），其余由能力配置下发 -->
+    <view class="tool" @tap="goCreate">
+      <text class="tool__ic">开</text>
+      <view class="tool__body">
+        <text class="tool__t">手动开单</text>
+        <text class="tool__s">代客开单：选空闲工位，用手机号确认用户</text>
+      </view>
+      <text class="tool__arrow">›</text>
     </view>
 
     <view v-for="cap in shopCaps" :key="cap.key" class="tool" @tap="openTool(cap)">
@@ -74,7 +84,8 @@
     </view>
 
     <text class="scope-note">
-      门店工具由该门店的能力配置下发，未启用的门店不显示。设备类操作（通风、毛巾柜）在工位详情里。
+      手动开单是所有门店通用的固定入口；停车缴费等工具由该门店的能力配置下发，未启用则不显示。
+      设备类操作（通风、毛巾柜）在工位详情里。
     </text>
 
     <!-- 底部悬浮切店条：切店入口只在这里 -->
@@ -266,6 +277,11 @@ const chooseShop = async (target: Shop) => {
 
 const openDetail = (station: Station) => {
   Taro.navigateTo({ url: `/packageStation/pages/station-detail/index?id=${station.id}` })
+}
+
+/** 代客开单：不带工位进页面，由开单页列出该门店的空闲工位 */
+const goCreate = () => {
+  Taro.navigateTo({ url: `/packageOrder/pages/create/index?shop_id=${shop.value?.id || 0}` })
 }
 
 const openTool = (cap: Capability) => {
