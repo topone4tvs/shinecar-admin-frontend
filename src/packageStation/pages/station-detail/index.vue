@@ -88,8 +88,8 @@
         <text class="card__desc">
           {{ detail.status === 'repair' ? '工位处于维护中，用户端已下线。' : '工位空闲，等待用户扫码开单。' }}
         </text>
-        <button v-if="detail.status === 'idle'" class="btn btn--brand btn--inline" @tap="goCreate">
-          手动开单
+        <button v-if="detail.status === 'idle'" class="btn btn--brand btn--inline" @tap="notifyCreatePending">
+          管理员开单
         </button>
       </view>
 
@@ -300,13 +300,9 @@ const goParking = (plate: string) => {
   })
 }
 
-/** 代客开单：带上当前工位，开单页不用再选 */
-const goCreate = () => {
-  const d = detail.value
-  if (!d) return
-  Taro.navigateTo({
-    url: `/packageOrder/pages/create/index?shop_id=${d.shop_id}&station_id=${d.id}`,
-  })
+/** 管理员开单：独立命令，实现待定，先只提示（不走 C 端开单流程） */
+const notifyCreatePending = () => {
+  tip('管理员开单功能开发中')
 }
 
 /** 开门：L2，一次性指令，只承诺已下发 */

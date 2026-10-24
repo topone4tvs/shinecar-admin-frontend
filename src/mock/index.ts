@@ -10,7 +10,6 @@ import type {
   ShopOverview,
   Station,
   StationDetail,
-  UserBrief,
   UserDetail,
 } from '@/types/api'
 import { ADMINS, CAPABILITIES, SHOPS, STATION_USERS, USERS, runtime, type MockAdmin } from './data'
@@ -415,73 +414,6 @@ const routes: Route[] = [
     },
   },
 
-  {
-    method: 'POST',
-    pattern: /^\/orders$/,
-    handler: ({ data }): OrderDetail => {
-      requireAdmin()
-      const stationId = Number(data?.station_id || 0)
-      const userId = Number(data?.user_id || 0)
-      const plate = normalizePlate(String(data?.plate_no || ''))
-
-      const station = runtime.stations.find(s => s.id === stationId)
-      if (!station) throw new ApiError(40400, '工位不存在')
-      if (station.status === 'busy') throw new ApiError(41100, '该工位正在使用中，请先结束当前订单')
-      if (station.status !== 'idle') throw new ApiError(41100, '该工位当前不可开单')
-
-      const user = USERS.find(u => u.id === userId)
-      if (!user) throw new ApiError(40400, '用户不存在，请重新查询手机号')
-      const working = runtime.orders.find(
-        o => o.status === 'ongoing' && o.user_phone_masked === user.phone_masked,
-      )
-      if (working) throw new ApiError(41100, `该用户已有进行中的订单（#${working.id}），请先结束`)
-      if (user.balance <= 0) throw new ApiError(41100, '账户余额不足')
-
-      const id = Math.max(0, ...runtime.orders.map(o => o.id)) + 1
-      const startedAt = new Date().toISOString()
-      const plateNo = plate || normalizePlate(user.plate_no || '')
-
-      const order: OrderItem = {
-        id,
-        order_no: String(id),
-        shop_id: station.shop_id,
-        shop_name: station.shop_name,
-        station_name: station.name,
-        status: 'ongoing',
-        started_at: startedAt,
-        duration_text: '0 分钟',
-        user_phone_masked: user.phone_masked,
-        plate_no: plateNo,
-      }
-      runtime.orders.unshift(order)
-      // 让刚开的单能被「手机号搜索」查到（真实后端是按 user_id 关联）
-      ORDER_PHONES[id] = user.phone
-
-      station.status = 'busy'
-      station.order_id = id
-      station.started_at = startedAt
-      station.elapsed_seconds = 0
-      station.plate_tail = plateNo.slice(-4)
-
-      return {
-        ...order,
-        user_id: user.id,
-        nickname: user.nickname,
-        pay_status: 'unpaid',
-        pay_text: '待结算',
-        fee: {
-          total_fee: 0,
-          balance: 0,
-          experience_minutes: 0,
-          night_discount: 0,
-          new_user_minutes: 0,
-        },
-        can_finish: true,
-        can_pay_parking: Boolean(plateNo),
-      }
-    },
-  },
-
   // ---------------- 整洁奖励审核 ----------------
   {
     method: 'GET',
@@ -524,30 +456,6 @@ const routes: Route[] = [
   },
 
   // ---------------- 用户 ----------------
-  {
-    method: 'GET',
-    pattern: /^\/users$/,
-    handler: ({ data }): UserBrief => {
-      requireAdmin()
-      const phone = String(data?.phone || '').trim()
-      if (phone.length !== 11) throw new ApiError(41000, '请填写完整的 11 位手机号')
-      const user = USERS.find(u => u.phone === phone)
-      if (!user) throw new ApiError(40400, '该手机号还不是平台用户，请让用户先在小程序注册')
-      const working = runtime.orders.find(
-        o => o.status === 'ongoing' && o.user_phone_masked === user.phone_masked,
-      )
-      return {
-        id: user.id,
-        nickname: user.nickname,
-        phone_masked: user.phone_masked,
-        balance: user.balance,
-        vehicles: user.vehicles,
-        order_count: user.order_count,
-        is_newer: user.is_newer,
-        working_order_id: working?.id,
-      }
-    },
-  },
   {
     method: 'GET',
     pattern: /^\/users\/(\d+)$/,

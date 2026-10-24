@@ -8,7 +8,7 @@ export default defineAppConfig({
   ],
   subPackages: [
     { root: 'packageStation', pages: ['pages/station-detail/index', 'pages/parking/index'] },
-    { root: 'packageOrder', pages: ['pages/detail/index', 'pages/create/index'] },
+    { root: 'packageOrder', pages: ['pages/detail/index'] },
     { root: 'packageUser', pages: ['pages/detail/index'] },
   ],
   // 原生 tabBar；图标（assets/tab/*.png）在 P1 补齐，未配 iconPath 时微信仅显示文字
