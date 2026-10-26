@@ -33,7 +33,7 @@ export const CURRENT_ENV: Environment = normalizeEnv(__APP_ENV__)
 
 const envConfigs: Record<Environment, EnvConfig> = {
   development: {
-    apiBaseUrl: 'http://127.0.0.1:8989',
+    apiBaseUrl: 'http://127.0.0.1:8991',
     adminApiPrefix: '/admin/v1',
     assetBaseUrl: 'https://res.shinecar.club',
     wechatAppId: 'wx4cb45f57b38380a7',
