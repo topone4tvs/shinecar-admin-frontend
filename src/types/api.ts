@@ -24,6 +24,13 @@ export interface AdminProfile {
 /** 工位状态：空闲 / 使用中 / 维护中 / 下线 */
 export type StationStatus = 'idle' | 'busy' | 'repair' | 'off'
 
+/**
+ * 业务占用状态（sc_stations.work_status 原始值）：
+ * 1 空闲 / 2 使用中（有订单）/ 3 清洁中（管理员通电占用，无订单）。
+ * status=busy 时要用它区分「有单在用」还是「被管理员占用」。
+ */
+export type StationWorkStatus = 1 | 2 | 3
+
 export interface Station {
   id: number
   shop_id: number
@@ -31,6 +38,8 @@ export interface Station {
   /** 工位号，如「3 号」 */
   name: string
   status: StationStatus
+  /** 原始业务占用值，busy 时用于区分 使用中 / 清洁中 */
+  work_status?: StationWorkStatus
   /** busy 时有效 */
   order_id?: number
   started_at?: string

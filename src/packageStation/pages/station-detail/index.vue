@@ -84,7 +84,7 @@
       </view>
 
       <view v-else class="card card--muted">
-        <text class="card__t">{{ powerOn ? '保养中' : '当前无使用中的订单' }}</text>
+        <text class="card__t">{{ cleanOn ? '清洁中' : powerOn ? '保养中' : '当前无使用中的订单' }}</text>
         <text class="card__desc">{{ emptyDesc }}</text>
       </view>
 
@@ -105,17 +105,21 @@
         </view>
         <view
           class="act act--danger"
-          :class="{ 'act--disabled': acting || !detail.order || powerOn }"
+          :class="{ 'act--disabled': acting || !detail.order || powerOn || cleanOn }"
           @tap="doFinish"
         >
           <text class="act__ic">停</text>
           <text class="act__t">结束订单</text>
         </view>
-        <view class="act" :class="{ 'act--busy': acting }" @tap="doMaintenance">
+        <view
+          class="act"
+          :class="{ 'act--busy': acting, 'act--disabled': cleanOn && detail.status !== 'repair' }"
+          @tap="doMaintenance"
+        >
           <text class="act__ic">维</text>
           <text class="act__t">{{ detail.status === 'repair' ? '解除维护' : '设为维护' }}</text>
         </view>
-        <!-- 通电不是开单：不产生订单、不计费，通电前工位必须先是维护中 -->
+        <!-- 通电不是开单：不产生订单、不计费；任何 status 都能通电，通电后工位进入「清洁中」 -->
         <view
           class="act"
           :class="{ 'act--busy': acting, 'act--on': powerOn }"
@@ -223,6 +227,12 @@ const deviceCaps = computed(() => detail.value?.capabilities || [])
 /** 通电态：与 status 正交，维护中 + 通电 = 保养中 */
 const powerOn = computed(() => detail.value?.power_state === 'on')
 
+/**
+ * 清洁中：管理员通电占用（work_status=3），没有订单但用户端开不了单。
+ * 这才是「真正挡住用户」的字段——power_state 只表示指令已下发。
+ */
+const cleanOn = computed(() => detail.value?.work_status === 3)
+
 /** 已通电时长：通电没有超时保护，界面必须持续显示，防止「忘了断电」 */
 const powerElapsedText = computed(() => {
   if (!powerOn.value) return ''
@@ -249,6 +259,8 @@ const elapsedSeconds = computed(() => {
 
 const heroStateText = computed(() => {
   const status = detail.value?.status
+  // 清洁中优先：工位被管理员通电占用，讲「洗了多久」没有意义
+  if (cleanOn.value) return `清洁中 · ${powerElapsedText.value || '已通电'}`
   if (status === 'busy') return `使用中 · 已洗 ${formatDuration(elapsedSeconds.value)}`
   if (status === 'repair') return powerOn.value ? '保养中 · 已通电' : '维护中 · 用户端已下线'
   if (status === 'off') return '已下线'
@@ -257,6 +269,7 @@ const heroStateText = computed(() => {
 
 const heroMetric = computed(() => {
   const status = detail.value?.status
+  if (cleanOn.value) return '清洁中'
   if (status === 'busy') return formatDuration(elapsedSeconds.value)
   if (status === 'repair') return powerOn.value ? '保养中' : '维护中'
   if (status === 'off') return '已下线'
@@ -266,6 +279,11 @@ const heroMetric = computed(() => {
 const heroSub = computed(() => {
   const d = detail.value
   if (!d) return ''
+  if (cleanOn.value) {
+    const at = d.power_at ? formatClock(d.power_at) : ''
+    const by = d.power_by ? `由${d.power_by}` : ''
+    return `${d.shop_name} · ${at ? `${at} ` : ''}${by}通电占用，用户端不可开单`
+  }
   if (d.status === 'busy' && d.started_at) return `${d.shop_name} · 开始于 ${formatClock(d.started_at)}`
   if (d.status === 'repair') {
     const base = `${d.shop_name} · ${d.maintenance_at || ''} 由${d.maintenance_by || '总部'}设置`
@@ -274,10 +292,13 @@ const heroSub = computed(() => {
   return `${d.shop_name} · 今日暂无订单`
 })
 
-/** 无订单时的空态说明：保养中优先，其次维护中，最后空闲 */
+/** 无订单时的空态说明：清洁中 > 保养中 > 维护中 > 下线 > 空闲 */
 const emptyDesc = computed(() => {
+  if (cleanOn.value) {
+    return `设备${powerElapsedText.value || '已通电'}，工位处于清洁中，用户端暂不可开单。清洁完成后点「断电」恢复空闲。`
+  }
   if (powerOn.value) {
-    return `设备${powerElapsedText.value}，保养完成后请先断电，再解除维护。`
+    return `设备${powerElapsedText.value}，通电指令已下发但工位仍空闲，用户端可能还能开单，请确认后断电。`
   }
   if (detail.value?.status === 'repair') return '工位处于维护中，用户端已下线。'
   if (detail.value?.status === 'off') return '工位已下线，不参与排班。'
@@ -368,9 +389,9 @@ const doVoice = async () => {
 /** 结束订单：L3，红色确认按钮 + 影响面文案，不可撤回 */
 const doFinish = async () => {
   if (!detail.value || acting.value) return
-  // 通电保养态下禁止结束订单：既无单可结，也防误触把保养中的工位当成订单处理
-  if (powerOn.value) {
-    tip('保养中，没有可结束的订单')
+  // 通电/清洁中禁止结束订单：既无单可结，也防误触把保养中的工位当成订单处理
+  if (cleanOn.value || powerOn.value) {
+    tip(cleanOn.value ? '工位清洁中，没有可结束的订单' : '设备已通电，没有可结束的订单')
     return
   }
   const order = detail.value.order
@@ -399,7 +420,7 @@ const doFinish = async () => {
   }
 }
 
-/** 维护开关：使用中不允许设置（后端也会拦），解除后恢复可用状态 */
+/** 维护开关：使用中/清洁中不允许设置（后端也会拦），解除后恢复可用状态 */
 const doMaintenance = async () => {
   if (!detail.value || acting.value) return
   const station = detail.value
@@ -409,10 +430,9 @@ const doMaintenance = async () => {
     tip('工位正在使用中，请先结束订单')
     return
   }
-
-  // 收尾顺序必须是「先断电，再解除维护」：反了会让带电的工位提前对用户开放
-  if (!enable && powerOn.value) {
-    tip('设备还在通电，请先断电再解除维护')
+  // 后端要求 work_status=1 才能设为维护；清洁中（通电占用）必须先把人占位放掉
+  if (enable && station.work_status === 3) {
+    tip('设备通电保养中，请先断电再设为维护')
     return
   }
 
@@ -420,7 +440,9 @@ const doMaintenance = async () => {
     title: enable ? `将 ${station.name}工位设为维护中？` : `解除 ${station.name}工位的维护？`,
     content: enable
       ? '工位立即从用户端下线，进行中的订单不受影响。'
-      : '解除后工位重新对用户开放，可正常扫码开单。',
+      : cleanOn.value
+        ? '工位仍在清洁中（已通电），用户端暂不可开单；断电后才会重新开放。'
+        : '解除后工位重新对用户开放，可正常扫码开单。',
     confirmText: enable ? '设为维护' : '解除维护',
     confirmColor: enable ? '#D93026' : '#E6436E',
   })
@@ -440,8 +462,9 @@ const doMaintenance = async () => {
 
 /**
  * 通断电（维护保养）。
- * 通电不是开单：不产生订单、不计费，只下发 power_on；
- * 通电前必须先是维护中，否则用户端还能扫码开单，会和保养抢设备。
+ * 通电不是开单：不产生订单、不计费，只下发 power_on，并把 work_status 置为「清洁中」——
+ * 真正挡住用户开单的是 work_status，不是 status，所以任何 status（上线/维护/下线）都允许通电。
+ * 唯一挡路的是「已经有人在用」：有进行中订单，或工位已被占用（work_status=2/3）。
  */
 const doPower = async () => {
   if (!detail.value || acting.value) return
@@ -452,16 +475,20 @@ const doPower = async () => {
     tip('工位有进行中的订单，请先结束订单')
     return
   }
-  if (enable && station.status !== 'repair') {
-    tip('请先将工位设为维护中，再通电保养')
+  if (enable && station.work_status === 2) {
+    tip('工位正在使用中，无法通电')
+    return
+  }
+  if (enable && station.work_status === 3) {
+    tip('工位已在清洁中，无需重复通电')
     return
   }
 
   const res = await Taro.showModal({
     title: enable ? `给 ${station.name}工位通电？` : `给 ${station.name}工位断电？`,
     content: enable
-      ? '通电用于维护保养，不会产生订单，也不会计费。以设备实际状态为准。'
-      : '断电后设备停止运行。保养结束请先断电，再解除维护。',
+      ? '通电后工位进入「清洁中」，用户端立即无法开单；不产生订单，也不会计费。以设备实际状态为准。'
+      : '断电后工位恢复空闲，用户端可正常开单。',
     confirmText: enable ? '通电' : '断电',
     confirmColor: enable ? '#E6436E' : '#D93026',
   })

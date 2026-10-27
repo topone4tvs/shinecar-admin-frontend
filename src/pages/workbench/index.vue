@@ -154,11 +154,12 @@ let timer: ReturnType<typeof setInterval> | null = null
 const envText = CURRENT_ENV === 'production' ? '生产' : CURRENT_ENV === 'pre' ? '预发' : '开发'
 
 /**
- * 状态词。四状态口径不变（01 §6.1），通电只是叠加维度：
- * 维护中 + 通电 = 保养中，仅换展示词，不新增状态、不参与汇总计数。
+ * 状态词。四状态口径不变（01 §6.1），通电/清洁只是叠加维度：
+ * work_status=3 = 管理员通电占用（无订单），维护中 + 通电 = 保养中。
+ * 仅换展示词，不新增状态、不参与汇总计数（后端把 3 计入 busy）。
  */
 const statusText = (station: Station) => {
-  if (station.status === 'repair' && station.power_state === 'on') return '保养中'
+  if (station.work_status === 3) return station.status === 'repair' ? '保养中' : '清洁中'
   return STATUS_TEXT[station.status] || '未知'
 }
 
@@ -180,16 +181,17 @@ const elapsedOf = (station: Station) => {
 }
 
 const describe = (station: Station) => {
+  // 清洁中/保养中优先：这是现场正在发生的事，通断电时间比维护人更有用
+  if (station.work_status === 3) {
+    const at = station.power_at ? clockOf(station.power_at) : ''
+    const head = station.status === 'repair' ? '保养中' : '清洁中'
+    return at ? `${head} · ${at} 起通电` : `${head} · 通电中`
+  }
   if (station.status === 'busy') {
     const tail = station.plate_tail ? ` · 尾号 ${station.plate_tail}` : ''
     return `已洗 ${elapsedOf(station)}${tail}`
   }
   if (station.status === 'repair') {
-    // 通电中优先说保养，维护人和时间退居其次（保养才是现场正在发生的事）
-    if (station.power_state === 'on') {
-      const at = station.power_at ? clockOf(station.power_at) : ''
-      return at ? `保养中 · ${at} 起通电` : '保养中 · 通电中'
-    }
     return `${station.maintenance_at || ''} 由${station.maintenance_by || '总部'}设置`
   }
   if (station.status === 'off') return '不参与排班'

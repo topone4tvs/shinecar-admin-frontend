@@ -246,10 +246,12 @@ const routes: Route[] = [
       if (!station) throw new ApiError(40404, '工位不存在')
       // action 优先；兼容早期 enable 写法，避免前端漏改一处就静默失效
       const enable = data?.action ? data.action === 'set' : Boolean(data?.enable)
-      if (enable && station.status === 'busy') {
-        throw new ApiError(40901, '工位正在使用中，无法设置维护')
+      // 与后端一致：设为维护要求 work_status=1（有空单/清洁中都拒）
+      const workStatus = station.work_status ?? (station.order_id ? 2 : 1)
+      if (enable && workStatus !== 1) {
+        throw new ApiError(41100, workStatus === 3 ? '工位清洁中，请先断电' : '工位正在使用中，无法设置维护')
       }
-      station.status = enable ? 'repair' : station.order_id ? 'busy' : 'idle'
+      station.status = enable ? 'repair' : workStatus === 1 ? 'idle' : 'busy'
       if (enable) {
         station.maintenance_at = clockText(new Date())
         station.maintenance_by = admin.name
@@ -269,10 +271,15 @@ const routes: Route[] = [
       if (!station) throw new ApiError(40404, '工位不存在')
       const action = String(data?.action || '')
       if (action !== 'on' && action !== 'off') throw new ApiError(40011, 'action 只能是 on 或 off')
-      if (station.status === 'busy') throw new ApiError(41100, '工位有进行中的订单，请先结束订单')
-      // 与后端一致：通电要求先维护中，断电不要求
-      if (action === 'on' && station.status !== 'repair') {
-        throw new ApiError(41100, '请先将工位设为维护中，再通电保养')
+      const workStatus = station.work_status ?? (station.order_id ? 2 : 1)
+      if (station.order_id) throw new ApiError(41100, '工位有进行中的订单，请先结束订单')
+      // 与后端一致：通电 = work_status 1→3（清洁中），断电 = →1，都不校验 status（维护中也能通电）
+      if (action === 'on' && workStatus !== 1) {
+        throw new ApiError(41100, workStatus === 3 ? '工位已在清洁中，无需重复通电' : '工位正在使用中，无法通电')
+      }
+      station.work_status = action === 'on' ? 3 : 1
+      if (station.status !== 'repair' && station.status !== 'off') {
+        station.status = station.work_status === 1 ? 'idle' : 'busy'
       }
       station.power_state = action
       station.power_at = new Date().toISOString()
@@ -319,6 +326,7 @@ const routes: Route[] = [
       order.status = 'done'
       order.ended_at = new Date().toISOString()
       station.status = 'idle'
+      station.work_status = 1
       delete station.order_id
       delete station.started_at
       delete station.plate_tail

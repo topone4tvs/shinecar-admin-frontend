@@ -112,7 +112,18 @@ export const STATIONS: Station[] = [
     plate_tail: '9088',
   },
   { id: 202, shop_id: 2, shop_name: '城西科技园店', name: '2 号', status: 'idle' },
-  { id: 203, shop_id: 2, shop_name: '城西科技园店', name: '3 号', status: 'idle' },
+  // 清洁中样例：管理员已通电占用（work_status=3，无订单，用户端开不了单）
+  {
+    id: 203,
+    shop_id: 2,
+    shop_name: '城西科技园店',
+    name: '3 号',
+    status: 'busy',
+    work_status: 3,
+    power_state: 'on',
+    power_at: min(8),
+    power_by: '李静',
+  },
   {
     id: 204,
     shop_id: 2,
@@ -430,9 +441,16 @@ export const PARKING_RECORDS: ParkingRecord[] = [
 ]
 
 /** 运行期可变状态：审核结果、当前绑定、维护中的工位 */
+/**
+ * work_status 归一：有订单 = 2 使用中，无订单 = 1 空闲。
+ * 清洁中（3）没有订单，只能在数据里显式声明，不能靠 order_id 推。
+ */
+const normalizeStations = (list: Station[]): Station[] =>
+  list.map(st => ({ ...st, work_status: st.work_status ?? (st.order_id ? 2 : 1) }))
+
 export const runtime = {
   reviews: JSON.parse(JSON.stringify(REVIEWS)) as ReviewItem[],
-  stations: JSON.parse(JSON.stringify(STATIONS)) as Station[],
+  stations: normalizeStations(STATIONS),
   orders: JSON.parse(JSON.stringify(ORDERS)) as OrderItem[],
   parking: JSON.parse(JSON.stringify(PARKING_RECORDS)) as ParkingRecord[],
   /** 最近一次代缴的车牌 + 时间戳，用于「10 分钟内重复提交」拦截 */
@@ -444,7 +462,7 @@ export const runtime = {
 
 export const resetRuntime = () => {
   runtime.reviews = JSON.parse(JSON.stringify(REVIEWS)) as ReviewItem[]
-  runtime.stations = JSON.parse(JSON.stringify(STATIONS)) as Station[]
+  runtime.stations = normalizeStations(STATIONS)
   runtime.orders = JSON.parse(JSON.stringify(ORDERS)) as OrderItem[]
   runtime.parking = JSON.parse(JSON.stringify(PARKING_RECORDS)) as ParkingRecord[]
   runtime.lastParking = { plate: '', at: 0 }
