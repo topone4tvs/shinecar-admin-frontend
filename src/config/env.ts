@@ -33,7 +33,8 @@ export const CURRENT_ENV: Environment = normalizeEnv(__APP_ENV__)
 
 const envConfigs: Record<Environment, EnvConfig> = {
   development: {
-    apiBaseUrl: 'http://127.0.0.1:8991',
+    // 同机并行跑多个 trace 的后端时，用 TARO_APP_API_BASE_URL 覆盖（见 config/index.ts）
+    apiBaseUrl: __API_BASE__ || 'http://127.0.0.1:8991',
     adminApiPrefix: '/admin/v1',
     assetBaseUrl: 'https://res.shinecar.club',
     wechatAppId: 'wx4cb45f57b38380a7',

@@ -38,7 +38,11 @@ export default defineConfig<'webpack5'>(async (merge, { command, mode }) => {
       // 管理端只有 development / pre / production 三套环境
       __APP_ENV__: JSON.stringify(process.env.TARO_APP_ENV || process.env.NODE_ENV || 'development'),
       // 构建戳（时间 · commit），用于确认开发者工具里跑的是哪份产物
-      __BUILD_STAMP__: JSON.stringify(buildStamp())
+      __BUILD_STAMP__: JSON.stringify(buildStamp()),
+      // 本地后端地址覆盖：同机并行跑多个 trace 的 backend 时不用改代码换指向。
+      //   TARO_APP_API_BASE_URL=http://127.0.0.1:8992 bin/wtm appdev
+      // 只作用于 development 环境（见 src/config/env.ts）。
+      __API_BASE__: JSON.stringify(process.env.TARO_APP_API_BASE_URL || '')
     },
     copy: {
       patterns: [],
