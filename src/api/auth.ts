@@ -30,7 +30,13 @@ export const wxLogin = (code: string) =>
 export const bind = (payload: BindReq) =>
   post<AuthResult>('/auth/bind', payload, { auth: false })
 
-/** 退出登录（服务端 token_version+1，所有旧 token 失效） */
+/**
+ * 退出登录（服务端 token_version+1，所有旧 token 失效）。
+ *
+ * ⚠️ 有静默登录后这个接口单独用是**无效的**：WxLogin 只看 openid 绑定与账号状态、
+ * 不校验 token_version，所以退出后下一次请求 401 会立刻静默换回新 token。
+ * 真要「退出 / 换账号」必须走解绑（后端 repo/admin_account.go:Unbind，尚未暴露接口）。
+ */
 export const logout = () => post<Record<string, never>>('/auth/logout')
 
 /** 当前账号 */

@@ -6,32 +6,34 @@
       <view class="login__sub">门店运维 · 管理端</view>
     </view>
 
-    <view class="login__card">
-      <!-- 步骤 1：微信身份 -->
+    <!-- 静默进入中：冷启动的常态，页面上不出现任何需要点击的元素 -->
+    <view v-if="booting" class="login__boot">
+      <view class="login__spinner" />
+      <text>正在进入…</text>
+    </view>
+
+    <!-- 自动登录失败（网络 / 停用 / 微信授权异常）：给一句人话和一次重试 -->
+    <view v-else-if="enterError" class="login__err">
+      <text class="login__err-text">{{ enterError }}</text>
+      <view class="btn" @tap="boot">重新进入</view>
+      <text v-if="canDemo" class="login__err-alt" @tap="enableDemo">改用演示数据 →</text>
+    </view>
+
+    <view v-else-if="step === 2" class="login__card">
+      <!-- 步骤 1 已由静默授权完成，这里只做只读回显，不再有按钮 -->
       <view class="step">
-        <view class="step__no" :class="{ 'step__no--done': step === 2 }">{{ step === 2 ? '✓' : '1' }}</view>
+        <view class="step__no step__no--done">✓</view>
         <view class="step__main">
           <view class="step__title">
-            微信授权登录
-            <text v-if="step === 2" class="step__badge">已授权</text>
+            微信身份已识别
+            <text class="step__badge">已授权</text>
           </view>
           <view class="step__desc">仅用于识别当前微信身份，不读取昵称、头像与手机号。</view>
-          <button v-if="step === 1" class="btn" :loading="authorizing" :disabled="authorizing" @tap="handleWxAuth">
-            微信一键授权
-          </button>
-
-          <!-- 真实接口模式下把话说清楚：这条路由目前不存在，避免让人以为是接口写错了 -->
-          <view v-if="step === 1 && !mockOn" class="offline">
-            <text class="offline__title">当前是真实接口模式</text>
-            <text class="offline__body">{{ loginPath }} 由后端 P0a 提供，尚未上线，点了会报 404。</text>
-            <text v-if="canDemo" class="offline__action" @tap="enableDemo">改用演示数据 →</text>
-            <text v-else class="offline__body">这是生产构建，演示数据被强制关闭。请用 yarn build:demo 重新构建。</text>
-          </view>
         </view>
       </view>
 
-      <!-- 步骤 2：绑定管理员账号 -->
-      <view v-if="step === 2" class="step step--bind">
+      <!-- 步骤 2：绑定管理员账号（唯一需要用户动手的环节） -->
+      <view class="step step--bind">
         <view class="step__no">2</view>
         <view class="step__main">
           <view class="step__title">绑定管理员账号</view>
@@ -76,8 +78,8 @@
       <text class="login__stamp">构建 {{ buildStamp }}</text>
     </view>
 
-    <!-- 演示模式提示：仅 mock 开启时出现，后端就绪后自动消失 -->
-    <view v-if="mockOn" class="mock">
+    <!-- 演示模式提示：只在需要绑定时出现（用来一键填入账号），后端就绪后自动消失 -->
+    <view v-if="mockOn && step === 2" class="mock">
       <view class="mock__tag">演示模式</view>
       <view class="mock__desc">当前未连接后端，界面与交互使用内置示例数据。点账号可一键填入。</view>
       <view v-for="item in accounts" :key="item.phone" class="mock__row" @tap="fill(item.phone, item.code)">
@@ -101,7 +103,7 @@ import { bind, fetchProfile, wxLogin } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import { isMockEnabled, setMockEnabled } from '@/mock/config'
 import { mockAccounts } from '@/mock'
-import { CURRENT_ENV, getEnvConfig } from '@/config/env'
+import { CURRENT_ENV } from '@/config/env'
 import { ApiError } from '@/utils/error'
 import { inputValue } from '@/utils/input'
 
@@ -109,6 +111,8 @@ const WORKBENCH = '/pages/workbench/index'
 
 const auth = useAuthStore()
 const step = ref<1 | 2>(1)
+const booting = ref(true)
+const enterError = ref('')
 const authorizing = ref(false)
 const binding = ref(false)
 const ticket = ref('')
@@ -118,7 +122,6 @@ const authCode = ref('')
 const mockOn = isMockEnabled()
 const accounts = mockOn ? mockAccounts() : []
 const buildStamp = __BUILD_STAMP__
-const loginPath = `${getEnvConfig().apiBaseUrl}${getEnvConfig().adminApiPrefix}/auth/wx-login`
 const canDemo = CURRENT_ENV !== 'production'
 
 /** 真实接口模式下的一键自救：切回演示数据并重进登录页 */
@@ -140,23 +143,37 @@ const gotoWorkbench = () => {
   Taro.reLaunch({ url: WORKBENCH })
 }
 
-/** 已有登录态：直接校验并进入现场 */
-const tryResume = async () => {
-  if (!auth.token) return
+/**
+ * 静默进入。冷启动与「token 失效被踢回登录页」走同一条路：
+ *   1. 本地有 token 先验活（比走微信 code2Session 少一次往返）
+ *   2. 验不过就直接静默授权，openid 已绑定即无感进入
+ *   3. 只有 openid 没绑过账号才露出绑定表单
+ */
+const boot = async () => {
+  if (step.value === 2) return // 用户正在填绑定表单，别打断
+  booting.value = true
+  enterError.value = ''
+
   try {
-    const profile = await fetchProfile()
-    auth.applyAuth(auth.token, profile)
-    gotoWorkbench()
-  } catch {
-    // token 失效，停在登录页重新授权
-    auth.reset()
+    if (auth.token) {
+      try {
+        const profile = await fetchProfile()
+        auth.applyAuth(auth.token, profile)
+        gotoWorkbench()
+        return
+      } catch {
+        // token 过期 / 被踢下线：清掉后继续走静默授权，不在这里停下等用户点
+        auth.reset()
+      }
+    }
+    await silentEnter()
+  } finally {
+    booting.value = false
   }
 }
 
-onMounted(tryResume)
-useDidShow(tryResume)
-
-const handleWxAuth = async () => {
+/** 微信静默授权换 token；失败原因写进 enterError 由模板兜底展示 */
+const silentEnter = async () => {
   if (authorizing.value) return
   authorizing.value = true
   try {
@@ -180,11 +197,23 @@ const handleWxAuth = async () => {
     auth.applyAuth(resp.token, resp.profile)
     gotoWorkbench()
   } catch (error) {
-    tip(error instanceof ApiError ? error.message : '网络异常，请稍后重试')
+    enterError.value = error instanceof ApiError ? error.message : '网络异常，请稍后重试'
   } finally {
     authorizing.value = false
   }
 }
+
+// onMounted 与 useDidShow 在首屏都会触发，用标记保证只跑一次；
+// reLaunch 回来是新实例，标记自然重置
+let booted = false
+const bootOnce = () => {
+  if (booted) return
+  booted = true
+  boot()
+}
+
+onMounted(bootOnce)
+useDidShow(bootOnce)
 
 const handleBind = async () => {
   if (binding.value) return
@@ -259,6 +288,49 @@ const fill = (nextPhone: string, nextCode: string) => {
     padding: 8rpx $card-padding;
   }
 
+  // 静默进入中的占位：只留 logo + 转圈，视觉上等价于一个启动页
+  &__boot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 96rpx 0 40rpx;
+    color: $ink-3;
+    font-size: $fs-caption;
+    letter-spacing: 1rpx;
+  }
+
+  &__spinner {
+    width: 44rpx;
+    height: 44rpx;
+    margin-bottom: 22rpx;
+    border: 4rpx solid $line;
+    border-top-color: $brand;
+    border-radius: 50%;
+    animation: login-spin 0.75s linear infinite;
+  }
+
+  // 自动登录失败时的兜底：一句原因 + 一次重试，不弹 toast
+  &__err {
+    @include card;
+    padding: 40rpx $card-padding;
+    text-align: center;
+  }
+
+  &__err-text {
+    display: block;
+    margin-bottom: 28rpx;
+    font-size: $fs-body;
+    color: $ink-2;
+    line-height: 1.7;
+  }
+
+  &__err-alt {
+    display: block;
+    margin-top: 24rpx;
+    font-size: $fs-caption;
+    color: $brand;
+  }
+
   &__foot {
     margin-top: 40rpx;
     text-align: center;
@@ -282,36 +354,9 @@ const fill = (nextPhone: string, nextCode: string) => {
   }
 }
 
-// 真实接口模式提示：后端路由不存在时，把「为什么点不通」说在前面
-.offline {
-  margin-top: 20rpx;
-  padding: 20rpx 24rpx;
-  background: $warn-soft;
-  border: 1rpx solid $warn-line;
-  border-radius: 16rpx;
-
-  &__title {
-    display: block;
-    color: $warn;
-    font-size: 24rpx;
-    font-weight: 600;
-  }
-
-  &__body {
-    display: block;
-    margin-top: 8rpx;
-    color: $ink-3;
-    font-size: 22rpx;
-    line-height: 1.6;
-    word-break: break-all;
-  }
-
-  &__action {
-    display: inline-block;
-    margin-top: 12rpx;
-    color: $brand;
-    font-size: 24rpx;
-    font-weight: 600;
+@keyframes login-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
