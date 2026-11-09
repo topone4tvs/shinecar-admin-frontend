@@ -1,7 +1,25 @@
 <template>
   <view class="qy">
+    <!-- 订单 / 用户：同一个检索动作的两个对象，共用一个 Tab 省得来回切 -->
+    <view class="seg">
+      <view
+        class="seg__item"
+        :class="{ 'seg__item--on': mode === 'order' }"
+        @tap="setMode('order')"
+      >
+        订单
+      </view>
+      <view
+        class="seg__item"
+        :class="{ 'seg__item--on': mode === 'user' }"
+        @tap="setMode('user')"
+      >
+        用户
+      </view>
+    </view>
+
     <view class="filters">
-      <view class="filters__row">
+      <view v-if="mode === 'order'" class="filters__row">
         <view
           v-for="item in RANGES"
           :key="item.key"
@@ -32,73 +50,113 @@
           :value="plate"
           class="field__input"
           maxlength="8"
-          placeholder="可只输后几位，如 D2311"
+          :placeholder="mode === 'order' ? '可只输后几位，如 D2311' : '完整车牌，或后几位'"
           placeholder-class="field__ph"
           @input="onPlateInput"
         />
       </view>
 
-      <view class="field field--tap" @tap="pickShop">
+      <view v-if="mode === 'order'" class="field field--tap" @tap="pickShop">
         <text class="field__label">门店</text>
         <text class="field__value">{{ shopLabel }}</text>
         <text class="field__arrow">›</text>
       </view>
 
-      <button class="search" :loading="loading" :disabled="loading" @tap="doSearch">搜索订单</button>
+      <button class="search" :loading="loading" :disabled="loading" @tap="doSearch">
+        {{ mode === 'order' ? '搜索订单' : '搜索用户' }}
+      </button>
     </view>
 
-    <view class="qy__note">跨店查询，不受「现场」页的门店切换影响；结果里会标出门店。</view>
-
-    <view v-if="searched && !loading" class="result-head">
-      <text class="result-head__title">搜索结果</text>
-      <text class="result-head__count">共 {{ total }} 条</text>
+    <view class="qy__note">
+      {{ mode === 'order'
+        ? '跨店查询，不受「现场」页的门店切换影响；结果里会标出门店。'
+        : '按手机号精确匹配，或按车牌找（同一台车可能被多个账户绑定）。' }}
     </view>
 
-    <!-- 后端单次最多回 50 条：条件太宽时明确告诉用户看到的是截断结果 -->
-    <view v-if="searched && !loading && total > list.length" class="result-note">
-      仅显示最近 {{ list.length }} 条，请加手机号或车牌缩小范围
-    </view>
-
-    <view v-if="!searched && !loading" class="hint">
-      <text class="hint__text">输入手机号或车牌后搜索</text>
-    </view>
-
-    <view v-if="loading" class="hint"><text class="hint__text">查询中…</text></view>
-
-    <view v-else-if="searched && !list.length" class="hint">
-      <text class="hint__text">
-        没有符合条件的订单{{ range === 'all' ? '' : '，可以切到「全部」再试一次' }}
-      </text>
-    </view>
-
-    <view v-for="item in list" :key="item.id" class="order" @tap="openOrder(item)">
-      <view class="order__head">
-        <view class="order__left">
-          <text class="order__station">{{ item.station_name }}工位</text>
-          <text class="order__shop">{{ item.shop_name }}</text>
-        </view>
-        <text class="order__state" :class="`order__state--${item.status}`">{{ statusText(item.status) }}</text>
+    <!-- ---------------- 订单结果 ---------------- -->
+    <template v-if="mode === 'order'">
+      <view v-if="searched && !loading" class="result-head">
+        <text class="result-head__title">搜索结果</text>
+        <text class="result-head__count">共 {{ total }} 条</text>
       </view>
 
-      <view class="order__grid">
-        <view class="order__cell">
-          <text class="order__k">{{ item.status === 'ongoing' ? '开始' : '时段' }}</text>
-          <text class="order__v">{{ periodText(item) }}</text>
-        </view>
-        <view class="order__cell">
-          <text class="order__k">时长</text>
-          <text class="order__v">{{ durationText(item) }}</text>
-        </view>
+      <!-- 后端单次最多回 50 条：条件太宽时明确告诉用户看到的是截断结果 -->
+      <view v-if="searched && !loading && total > list.length" class="result-note">
+        仅显示最近 {{ list.length }} 条，请加手机号或车牌缩小范围
       </view>
 
-      <view class="order__meta">用户 {{ item.user_phone_masked }} · 车牌 {{ item.plate_no || '—' }}</view>
-
-      <view class="order__foot">
-        <text v-if="item.status === 'ongoing'" class="order__tip">进行中不计费</text>
-        <text v-else class="order__amount">{{ formatMoney(item.amount) }}</text>
-        <text class="order__arrow">详情 ›</text>
+      <view v-if="!searched && !loading" class="hint">
+        <text class="hint__text">输入手机号或车牌后搜索</text>
       </view>
-    </view>
+
+      <view v-if="loading" class="hint"><text class="hint__text">查询中…</text></view>
+
+      <view v-else-if="searched && !list.length" class="hint">
+        <text class="hint__text">
+          没有符合条件的订单{{ range === 'all' ? '' : '，可以切到「全部」再试一次' }}
+        </text>
+      </view>
+
+      <view v-for="item in list" :key="item.id" class="order" @tap="openOrder(item)">
+        <view class="order__head">
+          <view class="order__left">
+            <text class="order__station">{{ item.station_name }}工位</text>
+            <text class="order__shop">{{ item.shop_name }}</text>
+          </view>
+          <text class="order__state" :class="`order__state--${item.status}`">{{ statusText(item.status) }}</text>
+        </view>
+
+        <view class="order__grid">
+          <view class="order__cell">
+            <text class="order__k">{{ item.status === 'ongoing' ? '开始' : '时段' }}</text>
+            <text class="order__v">{{ periodText(item) }}</text>
+          </view>
+          <view class="order__cell">
+            <text class="order__k">时长</text>
+            <text class="order__v">{{ durationText(item) }}</text>
+          </view>
+        </view>
+
+        <view class="order__meta">用户 {{ item.user_phone_masked }} · 车牌 {{ item.plate_no || '—' }}</view>
+
+        <view class="order__foot">
+          <text v-if="item.status === 'ongoing'" class="order__tip">进行中不计费</text>
+          <text v-else class="order__amount">{{ formatMoney(item.amount) }}</text>
+          <text class="order__arrow">详情 ›</text>
+        </view>
+      </view>
+    </template>
+
+    <!-- ---------------- 用户结果 ---------------- -->
+    <template v-else>
+      <view v-if="userSearched && !loading" class="result-head">
+        <text class="result-head__title">用户</text>
+        <text class="result-head__count">共 {{ userTotal }} 人</text>
+      </view>
+
+      <view v-if="!userSearched && !loading" class="hint">
+        <text class="hint__text">输入手机号或车牌后搜索</text>
+      </view>
+
+      <view v-if="loading" class="hint"><text class="hint__text">查询中…</text></view>
+
+      <view v-else-if="userSearched && !userList.length" class="hint">
+        <text class="hint__text">没有找到该用户，核对手机号或车牌是否完整</text>
+      </view>
+
+      <view v-for="item in userList" :key="item.id" class="user" @tap="openUser(item)">
+        <view class="user__head">
+          <view class="user__left">
+            <text class="user__name">{{ item.nickname }}</text>
+            <text v-if="item.is_newer" class="user__tag">新人</text>
+          </view>
+          <text class="user__arrow">详情 ›</text>
+        </view>
+        <view class="user__meta">
+          手机号 {{ item.phone_masked }} · 余额 <text class="user__money">{{ formatMoney(item.balance) }}</text>
+        </view>
+      </view>
+    </template>
   </view>
 </template>
 
@@ -107,7 +165,8 @@ import { computed, onMounted, ref } from 'vue'
 import Taro, { usePullDownRefresh } from '@tarojs/taro'
 import { searchOrders, type OrderQuery } from '@/api/order'
 import { fetchShops } from '@/api/shop'
-import type { OrderItem, OrderStatus, Shop } from '@/types/api'
+import { searchUsers } from '@/api/user'
+import type { OrderItem, OrderStatus, Shop, UserSummary } from '@/types/api'
 import { formatClock, formatDateTime, formatMoney, secondsSince } from '@/utils/format'
 import { ApiError } from '@/utils/error'
 import { inputValue } from '@/utils/input'
@@ -133,6 +192,12 @@ const list = ref<OrderItem[]>([])
 const total = ref(0)
 const loading = ref(false)
 const searched = ref(false)
+
+type QueryMode = 'order' | 'user'
+const mode = ref<QueryMode>('order')
+const userList = ref<UserSummary[]>([])
+const userTotal = ref(0)
+const userSearched = ref(false)
 
 const shopLabel = computed(() => {
   if (!shopId.value) return '全部门店'
@@ -180,7 +245,15 @@ const durationText = (item: OrderItem) => {
   return item.duration_text || '—'
 }
 
+const setMode = (next: QueryMode) => {
+  mode.value = next
+}
+
 const doSearch = async () => {
+  if (mode.value === 'user') {
+    await doSearchUser()
+    return
+  }
   if (phone.value && !/^\d{4,11}$/.test(phone.value.trim())) {
     tip('手机号需完整 11 位才能精确匹配')
     return
@@ -213,6 +286,39 @@ const openOrder = (item: OrderItem) => {
   Taro.navigateTo({ url: `/packageOrder/pages/detail/index?id=${item.id}` })
 }
 
+/** 用户检索：手机号精确匹配，或车牌命中（后端会给多账户） */
+const doSearchUser = async () => {
+  const phoneText = phone.value.trim()
+  const plateText = plate.value.trim()
+  if (!phoneText && !plateText) {
+    tip('请输入手机号或车牌号')
+    return
+  }
+  if (phoneText && !/^\d{11}$/.test(phoneText)) {
+    tip('手机号需完整 11 位才能精确匹配')
+    return
+  }
+
+  loading.value = true
+  try {
+    const res = await searchUsers({
+      phone: phoneText || undefined,
+      plate_no: plateText || undefined,
+    })
+    userList.value = res.list
+    userTotal.value = res.total
+    userSearched.value = true
+  } catch (error) {
+    tip(error instanceof ApiError ? error.message : '查询失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const openUser = (item: UserSummary) => {
+  Taro.navigateTo({ url: `/packageUser/pages/detail/index?id=${item.id}` })
+}
+
 onMounted(async () => {
   try {
     shops.value = await fetchShops()
@@ -222,7 +328,8 @@ onMounted(async () => {
 })
 
 usePullDownRefresh(async () => {
-  if (searched.value) await doSearch()
+  const touched = mode.value === 'order' ? searched.value : userSearched.value
+  if (touched) await doSearch()
   Taro.stopPullDownRefresh()
 })
 </script>
@@ -247,6 +354,84 @@ usePullDownRefresh(async () => {
     display: flex;
     gap: 12rpx;
     margin-bottom: 20rpx;
+  }
+}
+
+/* 订单 / 用户分段：等价于文档 §4.5 的分段控件 */
+.seg {
+  display: flex;
+  padding: 6rpx;
+  margin-bottom: $card-gap;
+  border-radius: $r-full;
+  background: $fill;
+
+  &__item {
+    flex: 1;
+    height: 64rpx;
+    line-height: 64rpx;
+    text-align: center;
+    border-radius: $r-full;
+    font-size: $fs-body;
+    color: $ink-2;
+    @include press;
+
+    &--on {
+      background: $card;
+      color: $ink;
+      font-weight: $fw-semibold;
+      box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+    }
+  }
+}
+
+/* 用户检索结果卡：比订单卡轻，只要「认人 + 看余额」 */
+.user {
+  @include card;
+  @include press;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__left {
+    display: flex;
+    align-items: center;
+    gap: $sp-1;
+  }
+
+  &__name {
+    font-size: $fs-title;
+    font-weight: $fw-semibold;
+    color: $ink;
+  }
+
+  &__tag {
+    padding: 0 10rpx;
+    height: 32rpx;
+    line-height: 32rpx;
+    border-radius: $r-xs;
+    background: $teal-soft;
+    color: $teal-ink;
+    font-size: $fs-nano;
+  }
+
+  &__arrow {
+    font-size: $fs-caption;
+    color: $ink-4;
+  }
+
+  &__meta {
+    margin-top: 12rpx;
+    font-size: $fs-caption;
+    color: $ink-3;
+    @include tabular;
+  }
+
+  &__money {
+    color: $ink;
+    font-weight: $fw-medium;
   }
 }
 

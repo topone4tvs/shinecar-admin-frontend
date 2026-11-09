@@ -201,6 +201,52 @@ export interface UserDetail {
   order_count: number
   last_order_at?: string
   is_newer: boolean
+  /** 最近余额流水（后端给最近 20 条） */
+  balance_logs: BalanceLog[]
+}
+
+/**
+ * 余额流水。amount 带方向：收入为正、支出为负（元）。
+ * 库里 amount 恒为正、方向由 type 决定，映射由后端做，前端不要自己再判类型。
+ */
+export interface BalanceLog {
+  id: number
+  type: number
+  type_text: string
+  amount: number
+  balance_after: number
+  created_at: string
+}
+
+/** 用户检索结果的一行（列表不返回车辆与订单数，进详情再看） */
+export interface UserSummary {
+  id: number
+  nickname: string
+  phone: string
+  phone_masked: string
+  balance: number
+  is_newer: boolean
+}
+
+export interface UserList {
+  total: number
+  list: UserSummary[]
+}
+
+/** 余额调整入参：金额用「分」，避免浮点乘 100 的精度问题 */
+export interface BalanceAdjustPayload {
+  action: 'grant' | 'deduct'
+  amount_fen: number
+  reason: string
+}
+
+export interface BalanceAdjustResult {
+  user_id: number
+  action: 'grant' | 'deduct'
+  amount: number
+  balance_before: number
+  balance: number
+  balance_log_id?: number
 }
 
 /**

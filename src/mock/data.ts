@@ -403,6 +403,11 @@ export const USERS: UserDetail[] = [
     order_count: 42,
     last_order_at: '刚刚',
     is_newer: false,
+    balance_logs: [
+      { id: 903, type: 6, type_text: '赠送', amount: 10, balance_after: 126.4, created_at: '2026-11-08T19:20:00+08:00' },
+      { id: 902, type: 3, type_text: '消费', amount: -13.6, balance_after: 116.4, created_at: '2026-11-07T20:41:00+08:00' },
+      { id: 901, type: 1, type_text: '充值', amount: 130, balance_after: 130, created_at: '2026-11-05T10:12:00+08:00' },
+    ],
   },
   {
     id: 502,
@@ -416,6 +421,10 @@ export const USERS: UserDetail[] = [
     order_count: 17,
     last_order_at: '今天 08:58',
     is_newer: false,
+    balance_logs: [
+      { id: 912, type: 3, type_text: '消费', amount: -21.8, balance_after: 38.2, created_at: '2026-11-09T09:30:00+08:00' },
+      { id: 911, type: 1, type_text: '充值', amount: 60, balance_after: 60, created_at: '2026-11-02T14:05:00+08:00' },
+    ],
   },
   {
     id: 503,
@@ -429,6 +438,7 @@ export const USERS: UserDetail[] = [
     order_count: 6,
     last_order_at: '今天 08:12',
     is_newer: true,
+    balance_logs: [],
   },
 ]
 
@@ -453,6 +463,8 @@ export const runtime = {
   stations: normalizeStations(STATIONS),
   orders: JSON.parse(JSON.stringify(ORDERS)) as OrderItem[],
   parking: JSON.parse(JSON.stringify(PARKING_RECORDS)) as ParkingRecord[],
+  /** 用户也放进 runtime：余额调整要能改得动，否则刷新又回到原值 */
+  users: JSON.parse(JSON.stringify(USERS)) as UserDetail[],
   /** 最近一次代缴的车牌 + 时间戳，用于「10 分钟内重复提交」拦截 */
   lastParking: { plate: '', at: 0 },
   /** 当前已绑定的管理员 id（模拟 openid → 账号 的绑定关系） */
@@ -465,6 +477,7 @@ export const resetRuntime = () => {
   runtime.stations = normalizeStations(STATIONS)
   runtime.orders = JSON.parse(JSON.stringify(ORDERS)) as OrderItem[]
   runtime.parking = JSON.parse(JSON.stringify(PARKING_RECORDS)) as ParkingRecord[]
+  runtime.users = JSON.parse(JSON.stringify(USERS)) as UserDetail[]
   runtime.lastParking = { plate: '', at: 0 }
   runtime.boundAdminId = 0
   runtime.ticket = ''

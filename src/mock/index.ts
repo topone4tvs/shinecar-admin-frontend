@@ -2,6 +2,8 @@ import Taro from '@tarojs/taro'
 import { ApiError } from '@/utils/error'
 import type {
   AdminProfile,
+  BalanceAdjustResult,
+  BalanceLog,
   Capability,
   OrderDetail,
   OrderItem,
@@ -11,8 +13,9 @@ import type {
   Station,
   StationDetail,
   UserDetail,
+  UserList,
 } from '@/types/api'
-import { ADMINS, CAPABILITIES, SHOPS, STATION_USERS, USERS, runtime, type MockAdmin } from './data'
+import { ADMINS, CAPABILITIES, SHOPS, STATION_USERS, runtime, type MockAdmin } from './data'
 
 /**
  * 内置 mock 分发层。
@@ -72,6 +75,13 @@ const NICKNAMES: Record<number, string> = {
 }
 
 const delay = (ms = 280) => new Promise(resolve => setTimeout(resolve, ms))
+
+/** 金额保留两位，避免 0.1 + 0.2 这类浮点尾数进 mock 数据 */
+const round2 = (value: number) => Math.round(value * 100) / 100
+
+/** 车牌比对键：去掉间隔号与空格、统一大写，和后端 normalizePlate 口径一致 */
+const normalizePlateKey = (plate: string) =>
+  plate.replace(/[·\s]/g, '').toUpperCase()
 
 const toProfile = (admin: MockAdmin): AdminProfile => ({
   id: admin.id,
@@ -489,10 +499,79 @@ const routes: Route[] = [
   // ---------------- 用户 ----------------
   {
     method: 'GET',
+    pattern: /^\/users$/,
+    handler: ({ data }): UserList => {
+      requireAdmin()
+      const phone = String(data?.phone || '').trim()
+      const plate = normalizePlateKey(String(data?.plate_no || ''))
+      if (!phone && !plate) throw new ApiError(40011, '请填写手机号或车牌号')
+
+      const hit = runtime.users.filter(u => {
+        if (phone && u.phone !== phone) return false
+        if (plate && !u.vehicles.some(v => normalizePlateKey(v).includes(plate))) return false
+        return true
+      })
+      return {
+        total: hit.length,
+        list: hit.map(u => ({
+          id: u.id,
+          nickname: u.nickname,
+          phone: u.phone,
+          phone_masked: u.phone_masked,
+          balance: u.balance,
+          is_newer: u.is_newer,
+        })),
+      }
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/users\/(\d+)\/balance$/,
+    handler: ({ params, data }): BalanceAdjustResult => {
+      requireAdmin()
+      const user = runtime.users.find(u => u.id === Number(params[0]))
+      if (!user) throw new ApiError(40407, '用户不存在')
+
+      const action = String(data?.action || '')
+      const amountFen = Number(data?.amount_fen || 0)
+      const reason = String(data?.reason || '').trim()
+      if (action !== 'grant' && action !== 'deduct') throw new ApiError(40011, '操作类型不正确')
+      if (!Number.isInteger(amountFen) || amountFen <= 0) throw new ApiError(40011, '请输入正确的金额')
+      if (amountFen > 100_000) throw new ApiError(40011, '单笔最多 1000 元')
+      if (reason.length < 2) throw new ApiError(40011, '请填写调整原因（至少 2 个字）')
+
+      const amount = amountFen / 100
+      const before = user.balance
+      if (action === 'deduct' && before < amount) {
+        throw new ApiError(41100, `余额不足，当前余额 ${before.toFixed(2)} 元`)
+      }
+      user.balance = round2(action === 'grant' ? before + amount : before - amount)
+      const log: BalanceLog = {
+        id: Date.now(),
+        type: action === 'grant' ? 6 : 9,
+        type_text: action === 'grant' ? '赠送' : '扣减',
+        amount: action === 'grant' ? amount : -amount,
+        balance_after: user.balance,
+        created_at: new Date().toISOString(),
+      }
+      user.balance_logs.unshift(log)
+
+      return {
+        user_id: user.id,
+        action,
+        amount,
+        balance_before: before,
+        balance: user.balance,
+        balance_log_id: log.id,
+      }
+    },
+  },
+  {
+    method: 'GET',
     pattern: /^\/users\/(\d+)$/,
     handler: ({ params }): UserDetail => {
       requireAdmin()
-      const user = USERS.find(u => u.id === Number(params[0]))
+      const user = runtime.users.find(u => u.id === Number(params[0]))
       if (!user) throw new ApiError(40407, '用户不存在')
       return user
     },
