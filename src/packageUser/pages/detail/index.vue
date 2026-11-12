@@ -24,11 +24,14 @@
         <view class="assets__cell">
           <text class="assets__num">{{ formatMoney(user.balance) }}</text>
           <text class="assets__label">账户余额</text>
+          <text class="assets__sub">
+            充值 {{ formatMoney(user.recharge_balance) }} · 赠送 {{ formatMoney(user.bonus_balance) }}
+          </text>
         </view>
         <view class="assets__divider" />
         <view class="assets__cell">
           <text class="assets__num">{{ formatMoney(user.give_balance) }}</text>
-          <text class="assets__label">累计赠送</text>
+          <text class="assets__label">累计发放</text>
         </view>
       </view>
 
@@ -72,17 +75,14 @@
 
       <button class="adjust" @tap="openAdjust">调整余额</button>
 
-      <view class="note">
-        累计赠送是历史赠送流水之和，不等于「当前还能用的赠送额度」——余额表不区分本金与赠送，
-        所以这里只能看累计值。
-      </view>
-
       <!-- 余额调整弹层：居中而不是底部弹层，避开安卓手势条 -->
       <view v-if="adjustOpen" class="mask" @tap="closeAdjust">
         <view class="sheet" @tap.stop>
           <view class="sheet__head">
             <text class="sheet__title">调整余额</text>
-            <text class="sheet__balance">当前 {{ formatMoney(user.balance) }}</text>
+            <text class="sheet__balance">
+              当前 {{ formatMoney(user.balance) }}（充值 {{ formatMoney(user.recharge_balance) }} · 赠送 {{ formatMoney(user.bonus_balance) }}）
+            </text>
           </view>
 
           <view class="sheet__row">
@@ -91,14 +91,14 @@
               :class="{ 'pick--on': form.action === 'grant' }"
               @tap="setAction('grant')"
             >
-              加钱
+              发放赠送余额
             </view>
             <view
               class="pick"
               :class="{ 'pick--on': form.action === 'deduct' }"
               @tap="setAction('deduct')"
             >
-              扣钱
+              扣减余额
             </view>
           </view>
 
@@ -133,7 +133,10 @@
             />
           </view>
 
-          <view class="sheet__tip">原因会写进操作记录；单笔最多 1000 元。</view>
+          <view class="sheet__tip">
+            {{ form.action === 'grant' ? '发放的钱进赠送余额，不参与好评返现。' : '扣减先扣充值余额、再扣赠送余额，余额不足会扣光。' }}
+            原因会写进操作记录；单笔最多 1000 元。
+          </view>
 
           <view class="sheet__acts">
             <button class="sheet__btn sheet__btn--ghost" @tap="closeAdjust">取消</button>
@@ -143,7 +146,7 @@
               :disabled="submitting"
               @tap="submitAdjust"
             >
-              {{ form.action === 'grant' ? '确认加钱' : '确认扣钱' }}
+              {{ form.action === 'grant' ? '确认发放' : '确认扣减' }}
             </button>
           </view>
         </view>
@@ -276,11 +279,19 @@ const submitAdjust = async () => {
   }
 
   const isGrant = form.action === 'grant'
+  // 扣减金额超过当前余额时，后端会扣光；这里先明确告知，避免管理员以为全额扣成功。
+  const willClear = !isGrant && fen > Math.round(current.balance * 100)
+  const content = isGrant
+    ? `给 ${current.nickname} 发放 ${formatMoney(yuan)} 到赠送余额，原因：${reason}`
+    : willClear
+      ? `${current.nickname} 当前余额只有 ${formatMoney(current.balance)}，本次扣 ${formatMoney(yuan)} 会扣光，原因：${reason}`
+      : `从 ${current.nickname} 扣减 ${formatMoney(yuan)}，原因：${reason}`
+
   let confirmed = false
   try {
     const res = await Taro.showModal({
-      title: isGrant ? '确认加钱' : '确认扣钱',
-      content: `${isGrant ? '给' : '从'} ${current.nickname} ${isGrant ? '加' : '扣'} ${formatMoney(yuan)}，原因：${reason}`,
+      title: isGrant ? '确认发放' : '确认扣减',
+      content,
       confirmText: '确认',
       confirmColor: '#E6436E',
     })
@@ -299,8 +310,19 @@ const submitAdjust = async () => {
     })
     // 先用接口返回值刷新余额，再拉一次详情把流水补上
     current.balance = res.balance
+    current.recharge_balance = res.recharge_balance
+    current.bonus_balance = res.bonus_balance
     adjustOpen.value = false
-    tip(`已${isGrant ? '加' : '扣'} ${formatMoney(res.amount)}，当前余额 ${formatMoney(res.balance)}`)
+
+    const deductedFen = Math.round(res.deducted * 100)
+    if (isGrant) {
+      tip(`已发放 ${formatMoney(res.deducted)}，当前 ${formatMoney(res.balance)}`)
+    } else if (deductedFen < fen) {
+      // 扣光了但不够：流水里记的是实扣额，必须让管理员知道没扣满
+      tip(`已扣 ${formatMoney(res.deducted)}，余额不足已扣光`)
+    } else {
+      tip(`已扣减 ${formatMoney(res.deducted)}，当前 ${formatMoney(res.balance)}`)
+    }
     await load()
   } catch (error) {
     tip(error instanceof ApiError ? error.message : '操作失败')
@@ -402,6 +424,14 @@ load()
     @include tabular;
   }
 
+  // 充值 / 赠送 的拆分注脚，跟在总额下面
+  &__sub {
+    margin-top: 6rpx;
+    font-size: $fs-caption-sm;
+    color: $ink-3;
+    @include tabular;
+  }
+
   &__label {
     margin-top: 6rpx;
     font-size: $fs-caption-sm;
@@ -479,15 +509,6 @@ load()
     border-color: $brand-line;
     color: $brand;
   }
-}
-
-.note {
-  padding: 20rpx 24rpx;
-  border-radius: $r-md;
-  background: $fill;
-  font-size: $fs-caption-sm;
-  color: $ink-3;
-  line-height: 1.7;
 }
 
 .hint {

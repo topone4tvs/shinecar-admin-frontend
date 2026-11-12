@@ -542,15 +542,27 @@ const routes: Route[] = [
 
       const amount = amountFen / 100
       const before = user.balance
-      if (action === 'deduct' && before < amount) {
-        throw new ApiError(41100, `余额不足，当前余额 ${before.toFixed(2)} 元`)
+      let actual = amount
+
+      if (action === 'grant') {
+        // 发放一律进赠送余额（与后端一致）
+        user.balance = round2(before + amount)
+        user.bonus_balance = round2(user.bonus_balance + amount)
+      } else {
+        if (before <= 0) throw new ApiError(41100, '该用户余额为 0，无法扣减')
+        // 余额不足就扣光：先充值余额、再赠送余额
+        actual = Math.min(amount, before)
+        const fromRecharge = Math.min(user.recharge_balance, actual)
+        user.recharge_balance = round2(user.recharge_balance - fromRecharge)
+        user.bonus_balance = round2(user.bonus_balance - (actual - fromRecharge))
+        user.balance = round2(before - actual)
       }
-      user.balance = round2(action === 'grant' ? before + amount : before - amount)
+
       const log: BalanceLog = {
         id: Date.now(),
         type: action === 'grant' ? 6 : 9,
         type_text: action === 'grant' ? '赠送' : '扣减',
-        amount: action === 'grant' ? amount : -amount,
+        amount: action === 'grant' ? actual : -actual,
         balance_after: user.balance,
         created_at: new Date().toISOString(),
       }
@@ -560,8 +572,11 @@ const routes: Route[] = [
         user_id: user.id,
         action,
         amount,
+        deducted: actual,
         balance_before: before,
         balance: user.balance,
+        recharge_balance: user.recharge_balance,
+        bonus_balance: user.bonus_balance,
         balance_log_id: log.id,
       }
     },

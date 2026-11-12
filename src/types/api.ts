@@ -193,8 +193,13 @@ export interface UserDetail {
   /** 完整手机号，管理端可见（现场要打电话） */
   phone: string
   phone_masked: string
+  /** 总额 = recharge_balance + bonus_balance */
   balance: number
-  /** 累计赠送金额（元）。余额表不区分本金与赠送，所以只能展示累计值 */
+  /** 充值余额（元）：真实充值到账，参与好评返现计算 */
+  recharge_balance: number
+  /** 赠送余额（元）：平台赠送，不参与返现。管理员发放的钱进这里 */
+  bonus_balance: number
+  /** 累计发放金额（元）：历史赠送流水之和，不是当前可用余额 */
   give_balance: number
   plate_no?: string
   vehicles: string[]
@@ -243,9 +248,14 @@ export interface BalanceAdjustPayload {
 export interface BalanceAdjustResult {
   user_id: number
   action: 'grant' | 'deduct'
+  /** 申请变动额（元） */
   amount: number
+  /** 实际变动额（元）：扣减余额不足时会小于 amount（扣光） */
+  deducted: number
   balance_before: number
   balance: number
+  recharge_balance: number
+  bonus_balance: number
   balance_log_id?: number
 }
 
