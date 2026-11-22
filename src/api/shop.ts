@@ -1,21 +1,78 @@
 import { get, post } from '@/utils/request'
-import type { Capability, Shop, Station } from '@/types/api'
+import type {
+  BatchCommandResult,
+  Capability,
+  Shop,
+  ShopOverview,
+  Station,
+  StationDetail,
+} from '@/types/api'
 
 /** 当前账号可管理的门店 */
 export const fetchShops = () => get<Shop[]>('/shops')
 
-/** 门店工位实时状态 */
-export const fetchStations = (shopId: number) => get<Station[]>(`/shops/${shopId}/stations`)
+/**
+ * 现场页首屏：门店 + 汇总 + 工位列表一次拿全。
+ * 拆成多个请求会让首屏出现「数字到了、格子还没到」的错位。
+ */
+export const fetchShopOverview = (shopId: number) => get<ShopOverview>(`/shops/${shopId}/stations`)
 
-/** 门店能力配置（停车 / 毛巾柜 / 通风…），未启用的不返回 */
+/** 门店能力配置（停车 / 通风…），未启用的不返回 */
 export const fetchCapabilities = (shopId: number) => get<Capability[]>(`/shops/${shopId}/capabilities`)
 
-export const fetchStation = (stationId: number) => get<Station>(`/stations/${stationId}`)
+/** 工位详情聚合：进行中订单 + 用户资产 + 本工位设备能力 */
+export const fetchStation = (stationId: number) => get<StationDetail>(`/stations/${stationId}`)
 
 /** 维护开关：使用中的工位不允许设置 */
-export const setMaintenance = (stationId: number, enable: boolean) =>
-  post<Station>(`/stations/${stationId}/maintenance`, { enable })
+export const setMaintenance = (stationId: number, action: 'set' | 'clear') =>
+  post<Station>(`/stations/${stationId}/maintenance`, { action })
 
-/** 设备命令（毛巾柜 / 通风），只下发不查询状态 */
-export const sendCommand = (stationId: number, command: 'towel' | 'fan') =>
-  post<{ accepted: boolean; message: string }>(`/stations/${stationId}/commands`, { command }, { timeout: 8000 })
+/**
+ * 工位通断电（维护保养用）。
+ * 不是开单：不产生订单、不计费。通电要求工位先处于维护中，且工位不能有进行中订单。
+ */
+export const setStationPower = (stationId: number, action: 'on' | 'off') =>
+  post<{ station: Station; message: string }>(
+    `/stations/${stationId}/power`,
+    { action },
+    { timeout: 8000 },
+  )
+
+/**
+ * 工位清洁 / 取消清洁（管理端专用）。
+ * 状态机与通断电一致（work_status 1↔3），但下发 clean_start/clean_end，
+ * edge 侧编排「通电+开门点动」。action 仍用 on | off。
+ */
+export const setStationClean = (stationId: number, action: 'on' | 'off') =>
+  post<{ station: Station; message: string }>(
+    `/stations/${stationId}/clean`,
+    { action },
+    { timeout: 8000 },
+  )
+
+/** 统一设备命令入口：开门 / 语音 / 通风 / 毛巾柜 */
+export const sendCommand = (
+  stationId: number,
+  key: 'open_gate' | 'voice' | 'ventilation' | 'towel_cabinet',
+  params?: Record<string, unknown>,
+) =>
+  post<{ accepted: boolean; key: string; message: string }>(
+    `/stations/${stationId}/commands`,
+    { key, params },
+    { timeout: 8000 },
+  )
+
+/**
+ * 店铺维度一键命令（能力表 route=batch_command 的按钮走这里）。
+ * station_ids 不传 = 全店在线工位；部分成功不回滚，结果里区分 succeeded / skipped / failed。
+ */
+export const sendShopBatchCommand = (
+  shopId: number,
+  key: 'open_gate' | 'power_on' | 'ventilation',
+  stationIds?: number[],
+) =>
+  post<BatchCommandResult>(
+    `/shops/${shopId}/batch-commands`,
+    { key, station_ids: stationIds },
+    { timeout: 30000 },
+  )

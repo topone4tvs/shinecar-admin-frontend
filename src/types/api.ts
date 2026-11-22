@@ -24,6 +24,13 @@ export interface AdminProfile {
 /** 工位状态：空闲 / 使用中 / 维护中 / 下线 */
 export type StationStatus = 'idle' | 'busy' | 'repair' | 'off'
 
+/**
+ * 业务占用状态（sc_stations.work_status 原始值）：
+ * 1 空闲 / 2 使用中（有订单）/ 3 清洁中（管理员通电占用，无订单）。
+ * status=busy 时要用它区分「有单在用」还是「被管理员占用」。
+ */
+export type StationWorkStatus = 1 | 2 | 3
+
 export interface Station {
   id: number
   shop_id: number
@@ -31,6 +38,8 @@ export interface Station {
   /** 工位号，如「3 号」 */
   name: string
   status: StationStatus
+  /** 原始业务占用值，busy 时用于区分 使用中 / 清洁中 */
+  work_status?: StationWorkStatus
   /** busy 时有效 */
   order_id?: number
   started_at?: string
@@ -41,7 +50,18 @@ export interface Station {
   /** repair 时有效 */
   maintenance_at?: string
   maintenance_by?: string
+  /**
+   * 通电状态：on / off，缺省表示从未操作过。
+   * 与 status 正交——通电不改变四状态口径，维护中 + 通电 = 保养中。
+   */
+  power_state?: PowerState
+  /** 最近一次通断电下发时间（RFC3339），用于算「已通电多久」 */
+  power_at?: string
+  power_by?: string
 }
+
+/** 通断电状态词 */
+export type PowerState = 'on' | 'off'
 
 /** 门店能力项：由 admin_capabilities 配置下发，未启用的门店不显示 */
 export interface Capability {
@@ -51,9 +71,75 @@ export interface Capability {
   /** 两字以内字符图标，避免引入图标资源 */
   icon: string
   enabled: boolean
+  /**
+   * 作用域：shop = 门店工具（现场页「门店工具」区），station = 工位设备（工位详情「扩展设备」区）。
+   * 由后端 admin_capabilities.placement 下发，前端只按此字段分区渲染。
+   */
+  placement?: 'shop' | 'station'
+  /** 点击后需要的交互：直接下发 / 二次确认 / 弹层输入。缺省视为直接下发 */
+  confirm?: 'none' | 'confirm' | 'sheet'
+  /** 点击后的行为：page 跳页 / device_command 单工位命令 / batch_command 店铺批量 */
+  route?: 'page' | 'device_command' | 'batch_command'
 }
 
-export type OrderStatus = 'ongoing' | 'done' | 'refunded'
+/** 店铺级批量命令返回：部分成功不回滚 */
+export interface BatchCommandResult {
+  key: string
+  total: number
+  succeeded: number
+  skipped: { station_id: number; name: string; reason: string }[]
+  failed: { station_id: number; name: string; reason: string }[]
+}
+
+/** 门店概览：现场页首屏一次拿全，避免 3 个请求串行 */
+export interface ShopOverview {
+  shop: Shop
+  summary: { busy: number; idle: number; repairing: number }
+  stations: Station[]
+  refreshed_at: string
+}
+
+/** 工位详情里的车牌条目 */
+export interface StationPlate {
+  plate_no: string
+  /** true = 开单时快照的本单车牌；false = 账户下绑定的其他车辆 */
+  is_order: boolean
+}
+
+export interface StationOrderUser {
+  id: number
+  nickname: string
+  phone_masked: string
+  /** 完整手机号，管理端可见，用于拨打 */
+  phone: string
+  balance: number
+  coupon_count: number
+  plates: StationPlate[]
+}
+
+export interface StationOrder {
+  id: number
+  order_no: string
+  started_at: string
+  user: StationOrderUser
+}
+
+/**
+ * 工位详情聚合（GET /stations/{id}）。
+ * 只对进行中订单聚合用户资产；空闲/维护工位 order 为 null。
+ * 注意：不含任何金额字段——进行中订单不做费用试算（见 03 §6.3 金额口径）。
+ */
+export interface StationDetail extends Station {
+  capabilities: Capability[]
+  order: StationOrder | null
+}
+
+/**
+ * 订单状态：进行中 / 已完成 / 已取消。
+ * 库里的 status 是 1/2/3，后端映射成这三个词；已取消的单也允许被查到
+ * （现场常要解释「这单为什么没扣钱」）。
+ */
+export type OrderStatus = 'ongoing' | 'done' | 'canceled'
 
 export interface OrderItem {
   id: number
@@ -71,11 +157,25 @@ export interface OrderItem {
   amount?: number
 }
 
+/** 费用构成，只有已结束订单才有非零值 */
+export interface OrderFee {
+  total_fee: number
+  balance: number
+  experience_minutes: number
+  night_discount: number
+  new_user_minutes: number
+}
+
 export interface OrderDetail extends OrderItem {
   user_id: number
   nickname: string
   pay_status: 'unpaid' | 'paid' | 'free'
   pay_text: string
+  fee: OrderFee
+  /** 代缴停车费的时间；空表示还没代缴过 */
+  parking_paid_at?: string
+  can_finish: boolean
+  can_pay_parking: boolean
 }
 
 export type ReviewStatus = 'pending' | 'draft' | 'approved' | 'rejected'
@@ -101,10 +201,83 @@ export interface ReviewItem {
 export interface UserDetail {
   id: number
   nickname: string
+  /** 完整手机号，管理端可见（现场要打电话） */
+  phone: string
   phone_masked: string
+  /** 总额 = recharge_balance + bonus_balance */
   balance: number
+  /** 充值余额（元）：真实充值到账，参与好评返现计算 */
+  recharge_balance: number
+  /** 赠送余额（元）：平台赠送，不参与返现。管理员发放的钱进这里 */
+  bonus_balance: number
+  /** 累计发放金额（元）：历史赠送流水之和，不是当前可用余额 */
   give_balance: number
   plate_no?: string
+  vehicles: string[]
   order_count: number
   last_order_at?: string
+  is_newer: boolean
+  /** 最近余额流水（后端给最近 20 条） */
+  balance_logs: BalanceLog[]
+}
+
+/**
+ * 余额流水。amount 带方向：收入为正、支出为负（元）。
+ * 库里 amount 恒为正、方向由 type 决定，映射由后端做，前端不要自己再判类型。
+ */
+export interface BalanceLog {
+  id: number
+  type: number
+  type_text: string
+  amount: number
+  balance_after: number
+  created_at: string
+}
+
+/** 用户检索结果的一行（列表不返回车辆与订单数，进详情再看） */
+export interface UserSummary {
+  id: number
+  nickname: string
+  phone: string
+  phone_masked: string
+  balance: number
+  is_newer: boolean
+}
+
+export interface UserList {
+  total: number
+  list: UserSummary[]
+}
+
+/** 余额调整入参：金额用「分」，避免浮点乘 100 的精度问题 */
+export interface BalanceAdjustPayload {
+  action: 'grant' | 'deduct'
+  amount_fen: number
+  reason: string
+}
+
+export interface BalanceAdjustResult {
+  user_id: number
+  action: 'grant' | 'deduct'
+  /** 申请变动额（元） */
+  amount: number
+  /** 实际变动额（元）：扣减余额不足时会小于 amount（扣光） */
+  deducted: number
+  balance_before: number
+  balance: number
+  recharge_balance: number
+  bonus_balance: number
+  balance_log_id?: number
+}
+
+/**
+ * 停车代缴记录：只记车牌、时间、操作人。
+ * 停车系统既不提供查询接口，也不回传金额，所以这里**没有金额字段**。
+ */
+export interface ParkingRecord {
+  id: number
+  shop_id: number
+  plate_no: string
+  paid_at: string
+  operator: string
 }

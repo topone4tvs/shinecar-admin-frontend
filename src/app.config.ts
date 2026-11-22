@@ -11,17 +11,37 @@ export default defineAppConfig({
     { root: 'packageOrder', pages: ['pages/detail/index'] },
     { root: 'packageUser', pages: ['pages/detail/index'] },
   ],
-  // 原生 tabBar；图标（assets/tab/*.png）在 P1 补齐，未配 iconPath 时微信仅显示文字
+  // 原生 tabBar；81×81 透明底线性图标，普通态 #9AA1A9 / 选中态 #E6436E（见 assets/tab/）
   tabBar: {
     color: '#9AA1A9',
     selectedColor: '#E6436E',
     backgroundColor: '#FFFFFF',
     borderStyle: 'white',
     list: [
-      { pagePath: 'pages/workbench/index', text: '现场' },
-      { pagePath: 'pages/query/index', text: '查询' },
-      { pagePath: 'pages/review/index', text: '审核' },
-      { pagePath: 'pages/profile/index', text: '我的' },
+      {
+        pagePath: 'pages/workbench/index',
+        text: '现场',
+        iconPath: 'assets/tab/workbench.png',
+        selectedIconPath: 'assets/tab/workbench_active.png',
+      },
+      {
+        pagePath: 'pages/query/index',
+        text: '查询',
+        iconPath: 'assets/tab/query.png',
+        selectedIconPath: 'assets/tab/query_active.png',
+      },
+      {
+        pagePath: 'pages/review/index',
+        text: '审核',
+        iconPath: 'assets/tab/review.png',
+        selectedIconPath: 'assets/tab/review_active.png',
+      },
+      {
+        pagePath: 'pages/profile/index',
+        text: '我的',
+        iconPath: 'assets/tab/profile.png',
+        selectedIconPath: 'assets/tab/profile_active.png',
+      },
     ],
   },
   window: {

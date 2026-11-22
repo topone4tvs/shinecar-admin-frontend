@@ -2,15 +2,20 @@ import Taro from '@tarojs/taro'
 import { ApiError } from '@/utils/error'
 import type {
   AdminProfile,
+  BalanceAdjustResult,
+  BalanceLog,
   Capability,
   OrderDetail,
   OrderItem,
   ReviewItem,
   Shop,
+  ShopOverview,
   Station,
+  StationDetail,
   UserDetail,
+  UserList,
 } from '@/types/api'
-import { ADMINS, CAPABILITIES, USERS, runtime, type MockAdmin } from './data'
+import { ADMINS, CAPABILITIES, SHOPS, STATION_USERS, runtime, type MockAdmin } from './data'
 
 /**
  * 内置 mock 分发层。
@@ -70,6 +75,13 @@ const NICKNAMES: Record<number, string> = {
 }
 
 const delay = (ms = 280) => new Promise(resolve => setTimeout(resolve, ms))
+
+/** 金额保留两位，避免 0.1 + 0.2 这类浮点尾数进 mock 数据 */
+const round2 = (value: number) => Math.round(value * 100) / 100
+
+/** 车牌比对键：去掉间隔号与空格、统一大写，和后端 normalizePlate 口径一致 */
+const normalizePlateKey = (plate: string) =>
+  plate.replace(/[·\s]/g, '').toUpperCase()
 
 const toProfile = (admin: MockAdmin): AdminProfile => ({
   id: admin.id,
@@ -170,12 +182,31 @@ const routes: Route[] = [
   {
     method: 'GET',
     pattern: /^\/shops\/(\d+)\/stations$/,
-    handler: ({ params }): Station[] => {
+    handler: ({ params }): ShopOverview => {
       requireAdmin()
       const shopId = Number(params[0])
-      return runtime.stations
+      const shop = SHOPS.find(s => s.id === shopId)
+      if (!shop) throw new ApiError(40403, '门店不存在')
+      const stations = runtime.stations
         .filter(s => s.shop_id === shopId)
         .sort((a, b) => a.id - b.id)
+      const summary = stations.reduce(
+        (acc, s) => {
+          if (s.status === 'busy') acc.busy += 1
+          else if (s.status === 'idle') acc.idle += 1
+          else if (s.status === 'repair') acc.repairing += 1
+          return acc
+        },
+        { busy: 0, idle: 0, repairing: 0 },
+      )
+      const now = new Date()
+      const p = (n: number) => String(n).padStart(2, '0')
+      return {
+        shop,
+        summary,
+        stations,
+        refreshed_at: `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())} ${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`,
+      }
     },
   },
   {
@@ -189,11 +220,31 @@ const routes: Route[] = [
   {
     method: 'GET',
     pattern: /^\/stations\/(\d+)$/,
-    handler: ({ params }): Station => {
+    handler: ({ params }): StationDetail => {
       requireAdmin()
       const station = runtime.stations.find(s => s.id === Number(params[0]))
       if (!station) throw new ApiError(40404, '工位不存在')
-      return station
+
+      // 设备类能力只取 placement=station 的项；门店工具（停车）不出现在工位详情
+      const capabilities = (CAPABILITIES[station.shop_id] || []).filter(
+        c => c.enabled && (c.placement ?? 'station') === 'station',
+      )
+
+      let order: StationDetail['order'] = null
+      if (station.status === 'busy' && station.order_id && station.started_at) {
+        const source = runtime.orders.find(o => o.id === station.order_id)
+        const user = STATION_USERS[station.id]
+        if (source && user) {
+          order = {
+            id: source.id,
+            order_no: source.order_no,
+            started_at: station.started_at,
+            user,
+          }
+        }
+      }
+
+      return { ...station, capabilities, order }
     },
   },
   {
@@ -203,9 +254,14 @@ const routes: Route[] = [
       const admin = requireAdmin()
       const station = runtime.stations.find(s => s.id === Number(params[0]))
       if (!station) throw new ApiError(40404, '工位不存在')
-      if (station.status === 'busy') throw new ApiError(40901, '工位正在使用中，无法设置维护')
-      const enable = Boolean(data?.enable)
-      station.status = enable ? 'repair' : 'idle'
+      // action 优先；兼容早期 enable 写法，避免前端漏改一处就静默失效
+      const enable = data?.action ? data.action === 'set' : Boolean(data?.enable)
+      // 与后端一致：设为维护要求 work_status=1（有空单/清洁中都拒）
+      const workStatus = station.work_status ?? (station.order_id ? 2 : 1)
+      if (enable && workStatus !== 1) {
+        throw new ApiError(41100, workStatus === 3 ? '工位清洁中，请先断电' : '工位正在使用中，无法设置维护')
+      }
+      station.status = enable ? 'repair' : workStatus === 1 ? 'idle' : 'busy'
       if (enable) {
         station.maintenance_at = clockText(new Date())
         station.maintenance_by = admin.name
@@ -218,18 +274,128 @@ const routes: Route[] = [
   },
   {
     method: 'POST',
+    pattern: /^\/stations\/(\d+)\/(power|clean)$/,
+    handler: ({ params, data }): { station: Station; message: string } => {
+      const admin = requireAdmin()
+      const clean = params[1] === 'clean'
+      const station = runtime.stations.find(s => s.id === Number(params[0]))
+      if (!station) throw new ApiError(40404, '工位不存在')
+      const action = String(data?.action || '')
+      if (action !== 'on' && action !== 'off') throw new ApiError(40011, 'action 只能是 on 或 off')
+      const workStatus = station.work_status ?? (station.order_id ? 2 : 1)
+      if (station.order_id) throw new ApiError(41100, '工位有进行中的订单，请先结束订单')
+      // 与后端一致：占用 = work_status 1→3（清洁中），释放 = →1；clean 只换下发指令，状态机相同
+      if (action === 'on' && workStatus !== 1) {
+        throw new ApiError(41100, workStatus === 3
+          ? (clean ? '工位已在清洁中，无需重复清洁' : '工位已在清洁中，无需重复通电')
+          : (clean ? '工位正在使用中，无法开始清洁' : '工位正在使用中，无法通电'))
+      }
+      station.work_status = action === 'on' ? 3 : 1
+      if (station.status !== 'repair' && station.status !== 'off') {
+        station.status = station.work_status === 1 ? 'idle' : 'busy'
+      }
+      station.power_state = action
+      station.power_at = new Date().toISOString()
+      station.power_by = admin.name
+      const message = clean
+        ? (action === 'on' ? '已下发清洁指令，工位进入清洁中' : '已下发取消清洁指令，工位恢复空闲')
+        : (action === 'on' ? '已下发通电指令' : '已下发断电指令')
+      return { station, message }
+    },
+  },
+  {
+    method: 'POST',
     pattern: /^\/stations\/(\d+)\/commands$/,
     handler: ({ params, data }) => {
       requireAdmin()
       const station = runtime.stations.find(s => s.id === Number(params[0]))
       if (!station) throw new ApiError(40404, '工位不存在')
-      const command = String(data?.command || '')
-      if (!['towel', 'fan'].includes(command)) throw new ApiError(40010, '不支持的设备命令')
-      return {
-        accepted: true,
-        command,
-        message: command === 'towel' ? '取巾命令已下发' : '通风命令已下发',
+      const key = String(data?.key || data?.command || '')
+      const messages: Record<string, string> = {
+        open_gate: '已发送开门指令',
+        voice: '语音播报已下发',
+        ventilation: '已开启通风，5 分钟后自动关闭',
+        towel_cabinet: '毛巾柜命令已下发',
       }
+      const message = messages[key]
+      if (!message) throw new ApiError(40010, `能力不存在：${key}`)
+      // 设备离线：按文档「不假装成功」，返回未下发
+      if (station.status === 'off') {
+        return { accepted: false, key, message: '设备离线，指令未下发' }
+      }
+      return { accepted: true, key, message }
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/orders\/(\d+)\/finish$/,
+    handler: ({ params }) => {
+      requireAdmin()
+      const orderId = Number(params[0])
+      const station = runtime.stations.find(s => s.order_id === orderId)
+      if (!station) throw new ApiError(40408, '当前工位没有进行中的订单')
+      const order = runtime.orders.find(o => o.id === orderId)
+      if (!order) throw new ApiError(40405, '订单不存在')
+      order.status = 'done'
+      order.ended_at = new Date().toISOString()
+      station.status = 'idle'
+      station.work_status = 1
+      delete station.order_id
+      delete station.started_at
+      delete station.plate_tail
+      return { order_id: orderId, station_id: station.id, status: 'done' }
+    },
+  },
+
+  // ---------------- 停车代缴 ----------------
+  {
+    method: 'GET',
+    pattern: /^\/parking\/records$/,
+    handler: ({ data }) => {
+      requireAdmin()
+      const shopId = Number(data?.shop_id || 0)
+      const list = runtime.parking
+        .filter(r => !shopId || r.shop_id === shopId)
+        .sort((a, b) => (a.paid_at < b.paid_at ? 1 : -1))
+        .slice(0, 10)
+      return { list }
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/parking\/pay$/,
+    handler: ({ data }) => {
+      const admin = requireAdmin()
+      const raw = String(data?.plate_no || '')
+        .replace(/[·\s\-]/g, '')
+        .toUpperCase()
+        .slice(0, 8)
+      if (!raw) throw new ApiError(40020, '请先录入车牌')
+      // 展示与存储统一用「沪A·D2311」格式，避免记录列表与录入形态不一致
+      const plate = raw.length > 2 ? `${raw.slice(0, 2)}·${raw.slice(2)}` : raw
+      const paid = runtime.parking.find(r => r.plate_no === plate)
+      // 10 分钟内同车牌重复提交：需要 confirm_again=1 才放行
+      const recent =
+        runtime.lastParking.plate === plate && Date.now() - runtime.lastParking.at < 10 * 60 * 1000
+      if (recent && !data?.confirm_again) {
+        throw new ApiError(40902, '该车牌 10 分钟内已提交过一次，请确认后再缴')
+      }
+      const now = new Date()
+      const p = (n: number) => String(n).padStart(2, '0')
+      const stamp = `${p(now.getMonth() + 1)}-${p(now.getDate())} ${p(now.getHours())}:${p(now.getMinutes())}`
+      runtime.lastParking = { plate, at: Date.now() }
+      runtime.parking.unshift({
+        id: Date.now(),
+        shop_id: Number(data?.shop_id || admin.shop_ids[0]),
+        plate_no: plate,
+        paid_at: stamp,
+        operator: admin.name,
+      })
+      if (paid) {
+        // 已缴过的车牌：仍然返回成功，但带上提示让现场知道是重复操作
+        return { accepted: true, plate_no: plate, message: '代缴成功，已放行（该车牌此前已代缴过）' }
+      }
+      return { accepted: true, plate_no: plate, message: '代缴成功，已放行' }
     },
   },
 
@@ -271,12 +437,23 @@ const routes: Route[] = [
       const order = runtime.orders.find(o => o.id === Number(params[0]))
       if (!order) throw new ApiError(40405, '订单不存在')
       const payState = order.status === 'ongoing' ? 'unpaid' : order.amount === 0 ? 'free' : 'paid'
+      const finished = order.status === 'done'
       return {
         ...order,
         user_id: 500 + order.id,
         nickname: NICKNAMES[order.id] || '用户',
         pay_status: payState,
         pay_text: payState === 'unpaid' ? '未结算' : payState === 'free' ? '免费' : '已支付',
+        fee: {
+          total_fee: finished ? order.amount || 0 : 0,
+          balance: finished ? order.amount || 0 : 0,
+          experience_minutes: 0,
+          night_discount: 0,
+          new_user_minutes: 0,
+        },
+        parking_paid_at: undefined,
+        can_finish: order.status === 'ongoing',
+        can_pay_parking: Boolean(order.plate_no),
       }
     },
   },
@@ -325,10 +502,94 @@ const routes: Route[] = [
   // ---------------- 用户 ----------------
   {
     method: 'GET',
+    pattern: /^\/users$/,
+    handler: ({ data }): UserList => {
+      requireAdmin()
+      const phone = String(data?.phone || '').trim()
+      const plate = normalizePlateKey(String(data?.plate_no || ''))
+      if (!phone && !plate) throw new ApiError(40011, '请填写手机号或车牌号')
+
+      const hit = runtime.users.filter(u => {
+        if (phone && u.phone !== phone) return false
+        if (plate && !u.vehicles.some(v => normalizePlateKey(v).includes(plate))) return false
+        return true
+      })
+      return {
+        total: hit.length,
+        list: hit.map(u => ({
+          id: u.id,
+          nickname: u.nickname,
+          phone: u.phone,
+          phone_masked: u.phone_masked,
+          balance: u.balance,
+          is_newer: u.is_newer,
+        })),
+      }
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/users\/(\d+)\/balance$/,
+    handler: ({ params, data }): BalanceAdjustResult => {
+      requireAdmin()
+      const user = runtime.users.find(u => u.id === Number(params[0]))
+      if (!user) throw new ApiError(40407, '用户不存在')
+
+      const action = String(data?.action || '')
+      const amountFen = Number(data?.amount_fen || 0)
+      const reason = String(data?.reason || '').trim()
+      if (action !== 'grant' && action !== 'deduct') throw new ApiError(40011, '操作类型不正确')
+      if (!Number.isInteger(amountFen) || amountFen <= 0) throw new ApiError(40011, '请输入正确的金额')
+      if (amountFen > 100_000) throw new ApiError(40011, '单笔最多 1000 元')
+      if (reason.length < 2) throw new ApiError(40011, '请填写调整原因（至少 2 个字）')
+
+      const amount = amountFen / 100
+      const before = user.balance
+      let actual = amount
+
+      if (action === 'grant') {
+        // 发放一律进赠送余额（与后端一致）
+        user.balance = round2(before + amount)
+        user.bonus_balance = round2(user.bonus_balance + amount)
+      } else {
+        if (before <= 0) throw new ApiError(41100, '该用户余额为 0，无法扣减')
+        // 余额不足就扣光：先充值余额、再赠送余额
+        actual = Math.min(amount, before)
+        const fromRecharge = Math.min(user.recharge_balance, actual)
+        user.recharge_balance = round2(user.recharge_balance - fromRecharge)
+        user.bonus_balance = round2(user.bonus_balance - (actual - fromRecharge))
+        user.balance = round2(before - actual)
+      }
+
+      const log: BalanceLog = {
+        id: Date.now(),
+        type: action === 'grant' ? 6 : 9,
+        type_text: action === 'grant' ? '赠送' : '扣减',
+        amount: action === 'grant' ? actual : -actual,
+        balance_after: user.balance,
+        created_at: new Date().toISOString(),
+      }
+      user.balance_logs.unshift(log)
+
+      return {
+        user_id: user.id,
+        action,
+        amount,
+        deducted: actual,
+        balance_before: before,
+        balance: user.balance,
+        recharge_balance: user.recharge_balance,
+        bonus_balance: user.bonus_balance,
+        balance_log_id: log.id,
+      }
+    },
+  },
+  {
+    method: 'GET',
     pattern: /^\/users\/(\d+)$/,
     handler: ({ params }): UserDetail => {
       requireAdmin()
-      const user = USERS.find(u => u.id === Number(params[0]))
+      const user = runtime.users.find(u => u.id === Number(params[0]))
       if (!user) throw new ApiError(40407, '用户不存在')
       return user
     },

@@ -2,9 +2,11 @@ import type {
   AdminProfile,
   Capability,
   OrderItem,
+  ParkingRecord,
   ReviewItem,
   Shop,
   Station,
+  StationOrderUser,
   UserDetail,
 } from '@/types/api'
 
@@ -110,7 +112,18 @@ export const STATIONS: Station[] = [
     plate_tail: '9088',
   },
   { id: 202, shop_id: 2, shop_name: '城西科技园店', name: '2 号', status: 'idle' },
-  { id: 203, shop_id: 2, shop_name: '城西科技园店', name: '3 号', status: 'idle' },
+  // 清洁中样例：管理员已通电占用（work_status=3，无订单，用户端开不了单）
+  {
+    id: 203,
+    shop_id: 2,
+    shop_name: '城西科技园店',
+    name: '3 号',
+    status: 'busy',
+    work_status: 3,
+    power_state: 'on',
+    power_at: min(8),
+    power_by: '李静',
+  },
   {
     id: 204,
     shop_id: 2,
@@ -124,14 +137,67 @@ export const STATIONS: Station[] = [
 
 export const CAPABILITIES: Record<number, Capability[]> = {
   1: [
-    { key: 'parking', name: '停车', desc: '按车牌代缴', icon: '停', enabled: true },
-    { key: 'towel', name: '毛巾柜', desc: '下发取巾命令', icon: '巾', enabled: true },
-    { key: 'fan', name: '通风', desc: '吹风散热', icon: '风', enabled: true },
+    { key: 'parking_fee', name: '停车', desc: '按车牌代缴', icon: '停', enabled: true, placement: 'shop', confirm: 'none' },
+    { key: 'ventilation', name: '通风', desc: '吹风散热', icon: '风', enabled: true, placement: 'station', confirm: 'confirm' },
   ],
   2: [
-    { key: 'parking', name: '停车', desc: '按车牌代缴', icon: '停', enabled: true },
-    { key: 'fan', name: '通风', desc: '吹风散热', icon: '风', enabled: true },
+    { key: 'parking_fee', name: '停车', desc: '按车牌代缴', icon: '停', enabled: true, placement: 'shop', confirm: 'none' },
+    { key: 'ventilation', name: '通风', desc: '吹风散热', icon: '风', enabled: true, placement: 'station', confirm: 'confirm' },
   ],
+}
+
+/**
+ * 工位 → 进行中订单的用户信息（工位详情聚合用）。
+ * 真实实现由 /stations/{id} 聚合 sc_orders + sc_users + sc_user_vehicles，
+ * 这里按 station_id 预置，保证每次打开都有一份像样的现场数据。
+ */
+export const STATION_USERS: Record<number, StationOrderUser> = {
+  102: {
+    id: 502,
+    nickname: '林女士',
+    phone: '13912342311',
+    phone_masked: '139****2311',
+    balance: 38.2,
+    coupon_count: 1,
+    plates: [
+      { plate_no: '沪B·8K221', is_order: true },
+      { plate_no: '沪A·5M307', is_order: false },
+    ],
+  },
+  103: {
+    id: 501,
+    nickname: '陈先生',
+    phone: '13812348000',
+    phone_masked: '138****8000',
+    balance: 126.4,
+    coupon_count: 2,
+    plates: [
+      { plate_no: '沪A·D2311', is_order: true },
+      { plate_no: '沪B·8K221', is_order: false },
+      { plate_no: '沪C·1F908', is_order: false },
+    ],
+  },
+  106: {
+    id: 503,
+    nickname: '赵先生',
+    phone: '13712346677',
+    phone_masked: '137****6677',
+    balance: 0,
+    coupon_count: 0,
+    plates: [{ plate_no: '沪C·1F908', is_order: true }],
+  },
+  201: {
+    id: 504,
+    nickname: '周先生',
+    phone: '13612349088',
+    phone_masked: '136****9088',
+    balance: 64.8,
+    coupon_count: 3,
+    plates: [
+      { plate_no: '沪A·5M307', is_order: true },
+      { plate_no: '沪B·8K221', is_order: false },
+    ],
+  },
 }
 
 export const ORDERS: OrderItem[] = [
@@ -328,40 +394,85 @@ export const USERS: UserDetail[] = [
   {
     id: 501,
     nickname: '陈先生',
+    phone: '13800138000',
     phone_masked: '138****8000',
     balance: 126.4,
+    recharge_balance: 116.4,
+    bonus_balance: 10,
     give_balance: 10,
     plate_no: '沪A·D2311',
+    vehicles: ['沪A·D2311'],
     order_count: 42,
     last_order_at: '刚刚',
+    is_newer: false,
+    balance_logs: [
+      { id: 903, type: 6, type_text: '赠送', amount: 10, balance_after: 126.4, created_at: '2026-11-08T19:20:00+08:00' },
+      { id: 902, type: 3, type_text: '消费', amount: -13.6, balance_after: 116.4, created_at: '2026-11-07T20:41:00+08:00' },
+      { id: 901, type: 1, type_text: '充值', amount: 130, balance_after: 130, created_at: '2026-11-05T10:12:00+08:00' },
+    ],
   },
   {
     id: 502,
     nickname: '林女士',
+    phone: '13900139000',
     phone_masked: '139****2311',
     balance: 38.2,
+    recharge_balance: 38.2,
+    bonus_balance: 0,
     give_balance: 5,
     plate_no: '沪B·8K221',
+    vehicles: ['沪B·8K221', '沪B·2M158'],
     order_count: 17,
     last_order_at: '今天 08:58',
+    is_newer: false,
+    balance_logs: [
+      { id: 912, type: 3, type_text: '消费', amount: -21.8, balance_after: 38.2, created_at: '2026-11-09T09:30:00+08:00' },
+      { id: 911, type: 1, type_text: '充值', amount: 60, balance_after: 60, created_at: '2026-11-02T14:05:00+08:00' },
+    ],
   },
   {
     id: 503,
     nickname: '赵先生',
+    phone: '13700137000',
     phone_masked: '137****6677',
     balance: 0,
+    recharge_balance: 0,
+    bonus_balance: 0,
     give_balance: 0,
     plate_no: '沪C·1F908',
+    vehicles: ['沪C·1F908'],
     order_count: 6,
     last_order_at: '今天 08:12',
+    is_newer: true,
+    balance_logs: [],
   },
 ]
 
+/** 停车代缴记录：只记车牌、时间、操作人，**没有金额**（停车系统不回传） */
+export const PARKING_RECORDS: ParkingRecord[] = [
+  { id: 1, shop_id: 1, plate_no: '沪A·D2311', paid_at: '10-23 09:41', operator: '超级管理员' },
+  { id: 2, shop_id: 1, plate_no: '沪B·8K221', paid_at: '10-23 08:16', operator: '超级管理员' },
+  { id: 3, shop_id: 1, plate_no: '沪C·1F908', paid_at: '10-22 21:03', operator: '超级管理员' },
+  { id: 4, shop_id: 2, plate_no: '沪A·5M307', paid_at: '10-22 19:28', operator: '李静' },
+]
+
 /** 运行期可变状态：审核结果、当前绑定、维护中的工位 */
+/**
+ * work_status 归一：有订单 = 2 使用中，无订单 = 1 空闲。
+ * 清洁中（3）没有订单，只能在数据里显式声明，不能靠 order_id 推。
+ */
+const normalizeStations = (list: Station[]): Station[] =>
+  list.map(st => ({ ...st, work_status: st.work_status ?? (st.order_id ? 2 : 1) }))
+
 export const runtime = {
   reviews: JSON.parse(JSON.stringify(REVIEWS)) as ReviewItem[],
-  stations: JSON.parse(JSON.stringify(STATIONS)) as Station[],
+  stations: normalizeStations(STATIONS),
   orders: JSON.parse(JSON.stringify(ORDERS)) as OrderItem[],
+  parking: JSON.parse(JSON.stringify(PARKING_RECORDS)) as ParkingRecord[],
+  /** 用户也放进 runtime：余额调整要能改得动，否则刷新又回到原值 */
+  users: JSON.parse(JSON.stringify(USERS)) as UserDetail[],
+  /** 最近一次代缴的车牌 + 时间戳，用于「10 分钟内重复提交」拦截 */
+  lastParking: { plate: '', at: 0 },
   /** 当前已绑定的管理员 id（模拟 openid → 账号 的绑定关系） */
   boundAdminId: 0 as number,
   ticket: '' as string,
@@ -369,8 +480,11 @@ export const runtime = {
 
 export const resetRuntime = () => {
   runtime.reviews = JSON.parse(JSON.stringify(REVIEWS)) as ReviewItem[]
-  runtime.stations = JSON.parse(JSON.stringify(STATIONS)) as Station[]
+  runtime.stations = normalizeStations(STATIONS)
   runtime.orders = JSON.parse(JSON.stringify(ORDERS)) as OrderItem[]
+  runtime.parking = JSON.parse(JSON.stringify(PARKING_RECORDS)) as ParkingRecord[]
+  runtime.users = JSON.parse(JSON.stringify(USERS)) as UserDetail[]
+  runtime.lastParking = { plate: '', at: 0 }
   runtime.boundAdminId = 0
   runtime.ticket = ''
 }
