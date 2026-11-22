@@ -16,7 +16,9 @@ function buildStamp(): string {
   } catch {
     // 非 git 环境（如 CI 打包产物）忽略
   }
-  return `${time} · ${sha}`
+  // 带上构建环境：产物能自证是哪套环境（线上包必须出现 [production]）
+  const env = process.env.TARO_APP_ENV || process.env.NODE_ENV || 'development'
+  return `${time} · ${sha} [${env}]`
 }
 
 // https://taro-docs.jd.com/docs/next/config#defineconfig-辅助函数

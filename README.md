@@ -18,8 +18,20 @@ yarn dev:weapp:pre # 开发（连预发 https://pre-api.shinecar.club）
 生产构建：
 
 ```bash
-yarn build:weapp
+yarn build:weapp      # 裸构建，产物落 dist/
+yarn build:online     # 线上发布包：类型检查 → 构建 → 产物校验 → zip + manifest
 ```
+
+`build:online` 是发线上用的那条（`scripts/build-online.sh`），它在裸构建之外多做几件事：
+
+| 环节 | 作用 |
+|---|---|
+| 工作区检查 | 有未提交改动直接中止，保证线上包可追溯到 commit（`--allow-dirty` 放行，manifest 记 `dirty:true`） |
+| 类型检查 | `tsc --noEmit`，不过不打包 |
+| 产物校验 | 构建戳必须含 `[production]`；主包 ≤2MB、单分包 ≤2MB、总体积 ≤20MB；`app.json` 页面与分包齐全 |
+| 归档 | `release/shinecar-admin_<ver>_<时间>_<sha>.zip` + 同名 `.json` 构建清单 |
+
+上传仍是微信开发者工具导入本目录 → 上传（`project.config.json` 的 `miniprogramRoot` 已是 `dist/`）。
 
 > **构建口径别搞错。** `build:weapp` 是 production 构建，mock 在其中**强制关闭**，登录会真的去请求
 > `https://api.shinecar.club/admin/v1/auth/wx-login`——后端还没这条路由，必然 404。

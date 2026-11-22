@@ -1,6 +1,7 @@
 # 不带结尾斜杠：wtm 在 trace 里把 node_modules 建成软链，
 # 带斜杠的规则只匹配真实目录，会把软链漏成未跟踪文件。
 dist
+release/
 deploy_versions/
 .temp/
 .tmp/
