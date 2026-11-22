@@ -78,6 +78,17 @@ export interface Capability {
   placement?: 'shop' | 'station'
   /** 点击后需要的交互：直接下发 / 二次确认 / 弹层输入。缺省视为直接下发 */
   confirm?: 'none' | 'confirm' | 'sheet'
+  /** 点击后的行为：page 跳页 / device_command 单工位命令 / batch_command 店铺批量 */
+  route?: 'page' | 'device_command' | 'batch_command'
+}
+
+/** 店铺级批量命令返回：部分成功不回滚 */
+export interface BatchCommandResult {
+  key: string
+  total: number
+  succeeded: number
+  skipped: { station_id: number; name: string; reason: string }[]
+  failed: { station_id: number; name: string; reason: string }[]
 }
 
 /** 门店概览：现场页首屏一次拿全，避免 3 个请求串行 */

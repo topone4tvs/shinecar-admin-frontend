@@ -79,15 +79,17 @@ $fs-display:   70rpx; // 工位计时
 $fs-metric:    62rpx; // 预留：停车待缴金额（本期无金额展示）
 $fs-h1:        42rpx; // 统计数字
 $fs-h2:        40rpx; // 登录主标题
-$fs-h3:        34rpx; // 工位号 / 已结束订单金额 / 昵称
-$fs-h4:        32rpx; // 导航标题 / 弹层标题
-$fs-title:     28rpx; // 卡片标题 / 主按钮
-$fs-body:      26rpx;
-$fs-body-sm:   25rpx;
-$fs-caption:   23rpx;
-$fs-caption-sm:22rpx;
-$fs-micro:     21rpx;
-$fs-nano:      19rpx;
+// P2 放大（2026-11-19）：全局按钮/图标/字号上调一档，改善现场误触与可读性。
+// 最小点击区 ≥ 88rpx，符合微信小程序的可点击区域建议。
+$fs-h3:        38rpx; // 工位号 / 已结束订单金额 / 昵称
+$fs-h4:        36rpx; // 导航标题 / 弹层标题
+$fs-title:     32rpx; // 卡片标题 / 主按钮
+$fs-body:      30rpx;
+$fs-body-sm:   28rpx;
+$fs-caption:   26rpx;
+$fs-caption-sm:24rpx;
+$fs-micro:     23rpx;
+$fs-nano:      21rpx;
 
 $fw-regular:   400;
 $fw-medium:    500;
@@ -132,14 +134,14 @@ $mask:          rgba(20, 24, 30, .42);
 // ---------- 尺寸 ----------
 $nav-h:       88rpx;
 $tabbar-h:   112rpx;
-$btn-h:       84rpx;
-$btn-h-sm:    68rpx;
-$input-h:     80rpx;
-$field-h:     68rpx;
-$mini-btn-h:  40rpx;
-$icon-box:    64rpx; // 字符图标容器（圆角 $r-lg）
-$icon-box-sm: 56rpx; // 列表行图标
-$door-h:      92rpx;
+$btn-h:       92rpx; // P2：主按钮最小点击区
+$btn-h-sm:    80rpx;
+$input-h:     88rpx;
+$field-h:     80rpx;
+$mini-btn-h:  56rpx;
+$icon-box:    76rpx; // P2：字符图标容器（圆角 $r-lg）
+$icon-box-sm: 68rpx; // 列表行图标
+$door-h:     104rpx;
 $kb-key-h:    78rpx;
 $kb-key-h-p:  74rpx;
 

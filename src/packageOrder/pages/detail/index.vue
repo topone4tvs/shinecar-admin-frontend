@@ -92,6 +92,28 @@
         </view>
       </view>
 
+      <!-- 整洁奖励申请：有待审核条目时直接在这里审核，不必回审核页翻列表 -->
+      <view v-if="reviewItem" class="block">
+        <view class="block__title">整洁奖励申请</view>
+        <view class="line">
+          <text class="line__k">奖励金额</text>
+          <text class="line__v line__v--strong">{{ formatMoney(reviewItem.amount) }}</text>
+        </view>
+        <view class="line">
+          <text class="line__k">提交时间</text>
+          <text class="line__v">{{ reviewItem.submitted_at ? formatDateTime(reviewItem.submitted_at) : '—' }}</text>
+        </view>
+        <view class="line">
+          <text class="line__k">现场照片</text>
+          <text class="line__v">{{ reviewItem.photo_count }} 张</text>
+        </view>
+        <view class="review-acts">
+          <text class="review-btn" @tap="doReview('approve')">审核通过</text>
+          <text class="review-btn review-btn--ghost" @tap="doReview('reject')">拒绝</text>
+        </view>
+        <text class="review-hint">审核结果会同步到用户端；已审核的记录请到「审核」页查看。</text>
+      </view>
+
       <!-- 停车代缴 -->
       <view v-if="order.plate_no" class="block">
         <view class="line">
@@ -118,7 +140,8 @@
 import { computed, onUnmounted, ref } from 'vue'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { fetchOrder, finishOrder } from '@/api/order'
-import type { OrderDetail, OrderStatus } from '@/types/api'
+import { approveReview, fetchReviews, rejectReview } from '@/api/review'
+import type { OrderDetail, OrderStatus, ReviewItem } from '@/types/api'
 import { formatDateTime, formatDuration, formatMoney, secondsSince } from '@/utils/format'
 import { ApiError } from '@/utils/error'
 
@@ -133,6 +156,7 @@ const order = ref<OrderDetail | null>(null)
 const loading = ref(true)
 const acting = ref(false)
 const now = ref(Date.now())
+const reviewItem = ref<ReviewItem | null>(null)
 let timer: ReturnType<typeof setInterval> | null = null
 
 const statusText = (value: OrderStatus) => STATE_TEXT[value] || '未知'
@@ -156,6 +180,65 @@ const durationText = computed(() => {
 
 const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1800 })
 
+/** 只认待审核条目：已审核的没有「入口」意义，去审核页看历史 */
+const loadReview = async (orderNo: string) => {
+  try {
+    const { list } = await fetchReviews('pending')
+    reviewItem.value = list.find(item => item.order_no === orderNo) || null
+  } catch {
+    reviewItem.value = null
+  }
+}
+
+const doReview = async (action: 'approve' | 'reject') => {
+  const item = reviewItem.value
+  if (!item || acting.value) return
+
+  let remark = ''
+  let confirmed = false
+  try {
+    if (action === 'approve') {
+      const res = await Taro.showModal({
+        title: '审核通过',
+        content: `确认发放 ${formatMoney(item.amount)} 奖励给用户？操作不可撤销。`,
+        confirmText: '确认通过',
+        confirmColor: '#E6436E',
+      })
+      confirmed = res.confirm
+    } else {
+      const res = await Taro.showModal({
+        title: '拒绝申请',
+        content: '请填写拒绝原因（用户可见）',
+        editable: true,
+        placeholderText: '例如：照片无法辨认',
+        confirmText: '确认拒绝',
+        confirmColor: '#E6436E',
+      })
+      confirmed = res.confirm
+      remark = (res.content || '').trim()
+      if (confirmed && !remark) {
+        tip('请填写拒绝原因')
+        return
+      }
+    }
+  } catch {
+    confirmed = false
+  }
+  if (!confirmed) return
+
+  acting.value = true
+  try {
+    if (action === 'approve') await approveReview(item.id)
+    else await rejectReview(item.id, remark)
+    tip('审核已完成')
+    await load()
+  } catch (error) {
+    tip(error instanceof ApiError ? error.message : '审核失败')
+  } finally {
+    acting.value = false
+  }
+}
+
 const load = async () => {
   const id = Number(router.params.id)
   if (!id) {
@@ -164,6 +247,7 @@ const load = async () => {
   }
   try {
     order.value = await fetchOrder(id)
+    if (order.value) await loadReview(order.value.order_no)
   } catch (error) {
     if (error instanceof ApiError) {
       // 详情页内联展示，不弹 toast
@@ -385,6 +469,39 @@ useDidShow(() => {
   &[disabled] {
     opacity: 0.5;
   }
+}
+
+/* ---------------- 整洁奖励审核 ---------------- */
+.review-acts {
+  display: flex;
+  gap: $sp-2;
+  margin-top: $sp-3;
+}
+
+.review-btn {
+  flex: 1;
+  height: $btn-h;
+  line-height: $btn-h;
+  text-align: center;
+  border-radius: $r-md;
+  background: $brand;
+  color: $card;
+  font-size: $fs-title;
+  font-weight: $fw-semibold;
+  @include press;
+
+  &--ghost {
+    background: $fill;
+    color: $ink-2;
+  }
+}
+
+.review-hint {
+  display: block;
+  margin-top: $sp-2;
+  font-size: $fs-micro;
+  color: $ink-3;
+  line-height: 1.6;
 }
 
 .note {

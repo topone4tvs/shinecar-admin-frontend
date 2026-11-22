@@ -119,14 +119,14 @@
           <text class="act__ic">维</text>
           <text class="act__t">{{ detail.status === 'repair' ? '解除维护' : '设为维护' }}</text>
         </view>
-        <!-- 通电不是开单：不产生订单、不计费；任何 status 都能通电，通电后工位进入「清洁中」 -->
+        <!-- 清洁不是开单：不产生订单、不计费；下发 clean_start/clean_end（edge 编排通电+开门点动），工位进入「清洁中」 -->
         <view
           class="act"
           :class="{ 'act--busy': acting, 'act--on': powerOn }"
-          @tap="doPower"
+          @tap="doClean"
         >
-          <text class="act__ic">{{ powerOn ? '断' : '电' }}</text>
-          <text class="act__t">{{ powerOn ? '断电' : '通电' }}</text>
+          <text class="act__ic">{{ powerOn ? '止' : '洁' }}</text>
+          <text class="act__t">{{ powerOn ? '取消清洁' : '清洁' }}</text>
         </view>
       </view>
 
@@ -145,7 +145,7 @@
             @tap="runCapability(cap)"
           >
             <text class="act__ic act__ic--teal">{{ cap.icon }}</text>
-            <text class="act__t">{{ cap.name }}全开</text>
+            <text class="act__t">{{ capabilityLabel(cap) }}</text>
           </view>
         </view>
       </block>
@@ -195,7 +195,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
-import { fetchStation, sendCommand, setMaintenance, setStationPower } from '@/api/shop'
+import { fetchStation, sendCommand, setMaintenance, setStationClean } from '@/api/shop'
 import { finishOrder } from '@/api/order'
 import type { Capability, StationDetail } from '@/types/api'
 import { formatClock, formatDuration, formatMoney } from '@/utils/format'
@@ -221,26 +221,32 @@ const now = ref(Date.now())
 
 let timer: ReturnType<typeof setInterval> | null = null
 
-/** 扩展设备：placement=station 的能力；本期只有 ventilation，毛巾柜等未 seed 即不出现 */
+/** 扩展设备：placement=station 的能力，由能力表驱动渲染 */
 const deviceCaps = computed(() => detail.value?.capabilities || [])
 
-/** 通电态：与 status 正交，维护中 + 通电 = 保养中 */
+/**
+ * 按钮文案：能力表 title 只给主体词。
+ * 毛巾柜是「整板全部锁」才拼「全开」；通风每工位只有一个风扇，不能叫全开。
+ */
+const capabilityLabel = (cap: Capability) => (cap.key === 'towel_cabinet' ? `${cap.name}全开` : cap.name)
+
+/** 清洁/通电态：与 status 正交，维护中 + 清洁 = 保养中（power_state 是后端沿用字段名） */
 const powerOn = computed(() => detail.value?.power_state === 'on')
 
 /**
- * 清洁中：管理员通电占用（work_status=3），没有订单但用户端开不了单。
+ * 清洁中：管理员清洁占用（work_status=3），没有订单但用户端开不了单。
  * 这才是「真正挡住用户」的字段——power_state 只表示指令已下发。
  */
 const cleanOn = computed(() => detail.value?.work_status === 3)
 
-/** 已通电时长：通电没有超时保护，界面必须持续显示，防止「忘了断电」 */
+/** 清洁已进行时长：没有超时保护，界面必须持续显示，防止「忘了取消清洁」 */
 const powerElapsedText = computed(() => {
   if (!powerOn.value) return ''
   const start = detail.value?.power_at ? new Date(detail.value.power_at).getTime() : NaN
-  if (Number.isNaN(start)) return '已通电'
+  if (Number.isNaN(start)) return '清洁中'
   const diff = Math.floor((now.value - start) / 1000)
-  if (diff < 60) return '刚刚通电'
-  return `已通电 ${formatDuration(diff)}`
+  if (diff < 60) return '刚开始清洁'
+  return `已清洁 ${formatDuration(diff)}`
 })
 
 const orderPlate = computed(() => {
@@ -259,10 +265,10 @@ const elapsedSeconds = computed(() => {
 
 const heroStateText = computed(() => {
   const status = detail.value?.status
-  // 清洁中优先：工位被管理员通电占用，讲「洗了多久」没有意义
-  if (cleanOn.value) return `清洁中 · ${powerElapsedText.value || '已通电'}`
+  // 清洁中优先：工位被管理员清洁占用，讲「洗了多久」没有意义
+  if (cleanOn.value) return `清洁中 · ${powerElapsedText.value || '清洁中'}`
   if (status === 'busy') return `使用中 · 已洗 ${formatDuration(elapsedSeconds.value)}`
-  if (status === 'repair') return powerOn.value ? '保养中 · 已通电' : '维护中 · 用户端已下线'
+  if (status === 'repair') return powerOn.value ? '保养中 · 清洁中' : '维护中 · 用户端已下线'
   if (status === 'off') return '已下线'
   return '空闲 · 等待使用'
 })
@@ -282,7 +288,7 @@ const heroSub = computed(() => {
   if (cleanOn.value) {
     const at = d.power_at ? formatClock(d.power_at) : ''
     const by = d.power_by ? `由${d.power_by}` : ''
-    return `${d.shop_name} · ${at ? `${at} ` : ''}${by}通电占用，用户端不可开单`
+    return `${d.shop_name} · ${at ? `${at} ` : ''}${by}发起清洁，用户端不可开单`
   }
   if (d.status === 'busy' && d.started_at) return `${d.shop_name} · 开始于 ${formatClock(d.started_at)}`
   if (d.status === 'repair') {
@@ -295,10 +301,10 @@ const heroSub = computed(() => {
 /** 无订单时的空态说明：清洁中 > 保养中 > 维护中 > 下线 > 空闲 */
 const emptyDesc = computed(() => {
   if (cleanOn.value) {
-    return `设备${powerElapsedText.value || '已通电'}，工位处于清洁中，用户端暂不可开单。清洁完成后点「断电」恢复空闲。`
+    return `设备${powerElapsedText.value || '清洁中'}，工位处于清洁中，用户端暂不可开单。清洁完成后点「取消清洁」恢复空闲。`
   }
   if (powerOn.value) {
-    return `设备${powerElapsedText.value}，通电指令已下发但工位仍空闲，用户端可能还能开单，请确认后断电。`
+    return `设备${powerElapsedText.value}，清洁指令已下发但工位仍空闲，用户端可能还能开单，请确认后取消清洁。`
   }
   if (detail.value?.status === 'repair') return '工位处于维护中，用户端已下线。'
   if (detail.value?.status === 'off') return '工位已下线，不参与排班。'
@@ -389,9 +395,9 @@ const doVoice = async () => {
 /** 结束订单：L3，红色确认按钮 + 影响面文案，不可撤回 */
 const doFinish = async () => {
   if (!detail.value || acting.value) return
-  // 通电/清洁中禁止结束订单：既无单可结，也防误触把保养中的工位当成订单处理
+  // 清洁中禁止结束订单：既无单可结，也防误触把保养中的工位当成订单处理
   if (cleanOn.value || powerOn.value) {
-    tip(cleanOn.value ? '工位清洁中，没有可结束的订单' : '设备已通电，没有可结束的订单')
+    tip(cleanOn.value ? '工位清洁中，没有可结束的订单' : '设备清洁中，没有可结束的订单')
     return
   }
   const order = detail.value.order
@@ -430,9 +436,9 @@ const doMaintenance = async () => {
     tip('工位正在使用中，请先结束订单')
     return
   }
-  // 后端要求 work_status=1 才能设为维护；清洁中（通电占用）必须先把人占位放掉
+  // 后端要求 work_status=1 才能设为维护；清洁中（占用）必须先把人占位放掉
   if (enable && station.work_status === 3) {
-    tip('设备通电保养中，请先断电再设为维护')
+    tip('设备清洁中，请先取消清洁再设为维护')
     return
   }
 
@@ -441,7 +447,7 @@ const doMaintenance = async () => {
     content: enable
       ? '工位立即从用户端下线，进行中的订单不受影响。'
       : cleanOn.value
-        ? '工位仍在清洁中（已通电），用户端暂不可开单；断电后才会重新开放。'
+        ? '工位仍在清洁中，用户端暂不可开单；取消清洁后才会重新开放。'
         : '解除后工位重新对用户开放，可正常扫码开单。',
     confirmText: enable ? '设为维护' : '解除维护',
     confirmColor: enable ? '#D93026' : '#E6436E',
@@ -461,12 +467,12 @@ const doMaintenance = async () => {
 }
 
 /**
- * 通断电（维护保养）。
- * 通电不是开单：不产生订单、不计费，只下发 power_on，并把 work_status 置为「清洁中」——
- * 真正挡住用户开单的是 work_status，不是 status，所以任何 status（上线/维护/下线）都允许通电。
+ * 清洁 / 取消清洁（管理端专用）。
+ * 不是开单：不产生订单、不计费。下发 clean_start/clean_end（edge 编排「通电+开门点动」），
+ * backend 状态机与通断电一致：work_status 1↔3，真正挡住用户开单的是 work_status。
  * 唯一挡路的是「已经有人在用」：有进行中订单，或工位已被占用（work_status=2/3）。
  */
-const doPower = async () => {
+const doClean = async () => {
   if (!detail.value || acting.value) return
   const station = detail.value
   const enable = !powerOn.value
@@ -476,27 +482,27 @@ const doPower = async () => {
     return
   }
   if (enable && station.work_status === 2) {
-    tip('工位正在使用中，无法通电')
+    tip('工位正在使用中，无法开始清洁')
     return
   }
   if (enable && station.work_status === 3) {
-    tip('工位已在清洁中，无需重复通电')
+    tip('工位已在清洁中，无需重复清洁')
     return
   }
 
   const res = await Taro.showModal({
-    title: enable ? `给 ${station.name}工位通电？` : `给 ${station.name}工位断电？`,
+    title: enable ? `开始清洁 ${station.name}工位？` : `取消 ${station.name}工位的清洁？`,
     content: enable
-      ? '通电后工位进入「清洁中」，用户端立即无法开单；不产生订单，也不会计费。以设备实际状态为准。'
-      : '断电后工位恢复空闲，用户端可正常开单。',
-    confirmText: enable ? '通电' : '断电',
+      ? '工位将通电并开门点动，进入「清洁中」，用户端立即无法开单；不产生订单，也不会计费。以设备实际状态为准。'
+      : '工位将断电并开门点动，恢复空闲，用户端可正常开单。',
+    confirmText: enable ? '开始清洁' : '取消清洁',
     confirmColor: enable ? '#E6436E' : '#D93026',
   })
   if (!res.confirm) return
 
   acting.value = true
   try {
-    const out = await setStationPower(station.id, enable ? 'on' : 'off')
+    const out = await setStationClean(station.id, enable ? 'on' : 'off')
     tip(out.message)
     await load()
   } catch (error) {
@@ -511,8 +517,10 @@ const runCapability = async (cap: Capability) => {
   if (!detail.value || acting.value) return
   if (cap.confirm === 'confirm') {
     const res = await Taro.showModal({
-      title: `开启${cap.name}？`,
-      content: '5 分钟后自动关闭，以设备侧状态为准。',
+      title: `开启${capabilityLabel(cap)}？`,
+      content: cap.key === 'ventilation'
+        ? '5 分钟后自动关闭，以设备侧状态为准。'
+        : '将打开本工位毛巾柜的全部格子。',
       confirmText: '开启',
       confirmColor: '#E6436E',
     })
@@ -765,14 +773,14 @@ useDidShow(() => {
 }
 
 .minibtn {
-  padding: 0 14rpx;
-  height: 40rpx;
-  line-height: 40rpx;
+  padding: 0 16rpx;
+  height: $mini-btn-h;
+  line-height: $mini-btn-h;
   border-radius: $r-xs;
   border: 1rpx solid $line-2;
   background: $card;
   color: $ink-2;
-  font-size: $fs-nano;
+  font-size: $fs-caption;
 
   &--brand {
     border-color: $brand-line;
@@ -859,7 +867,7 @@ useDidShow(() => {
     border-radius: $r-lg;
     background: $fill;
     color: $ink-2;
-    font-size: $fs-body-sm;
+    font-size: $fs-h4;
     font-weight: $fw-semibold;
     line-height: $icon-box;
     text-align: center;
@@ -872,7 +880,7 @@ useDidShow(() => {
 
   &__t {
     margin-top: 12rpx;
-    font-size: $fs-caption;
+    font-size: $fs-body;
     font-weight: $fw-medium;
     color: $ink;
   }
@@ -898,7 +906,7 @@ useDidShow(() => {
 
   &--busy { opacity: 0.55; }
 
-  /* 通电态：用警示色，让「还通着电」在现场一眼可见 */
+  /* 清洁中：用警示色，让「还在清洁」在现场一眼可见 */
   &--on {
     background: $warn-soft;
     border-color: $warn-line;

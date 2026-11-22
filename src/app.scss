@@ -22,6 +22,8 @@ button {
   background: transparent;
   font-size: inherit;
   line-height: inherit;
+  // P2：操作按钮字重上调一档，小字号下不发虚（页面样式可覆盖）
+  font-weight: 500;
 
   &::after {
     border: none;

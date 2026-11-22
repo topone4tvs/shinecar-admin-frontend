@@ -35,6 +35,26 @@
         </view>
       </view>
 
+      <!-- 用户操作：从页面底部上移到资产卡下方，后续功能在这里横向扩展 -->
+      <view class="ops">
+        <view class="op op--grant" @tap="openAdjust">
+          <text class="op__ic">赠</text>
+          <text class="op__t">赠款</text>
+        </view>
+        <view class="op" @tap="comingSoon('退款')">
+          <text class="op__ic">退</text>
+          <text class="op__t">退款</text>
+        </view>
+        <view class="op" @tap="openAdjust">
+          <text class="op__ic">调</text>
+          <text class="op__t">调整余额</text>
+        </view>
+        <view class="op op--danger" @tap="comingSoon('拉黑')">
+          <text class="op__ic">黑</text>
+          <text class="op__t">拉黑</text>
+        </view>
+      </view>
+
       <view class="block">
         <view class="block__title">车辆</view>
         <view v-if="!user.vehicles.length" class="block__empty">未绑定车辆</view>
@@ -72,8 +92,6 @@
           </view>
         </view>
       </view>
-
-      <button class="adjust" @tap="openAdjust">调整余额</button>
 
       <!-- 余额调整弹层：居中而不是底部弹层，避开安卓手势条 -->
       <view v-if="adjustOpen" class="mask" @tap="closeAdjust">
@@ -190,6 +208,9 @@ const avatarMark = computed(() => {
 const displayPlate = (plate: string) => plate || '—'
 
 const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1600 })
+
+/** 退款 / 拉黑入口先占位：后端口径未定，不做「点了没反应」的假功能 */
+const comingSoon = (name: string) => tip(`${name}功能即将开放`)
 
 const copyText = (text: string) => {
   Taro.setClipboardData({ data: text })
@@ -576,21 +597,51 @@ load()
   }
 }
 
-.adjust {
-  width: 100%;
-  height: $btn-h;
+/* ---------------- 用户操作区（资产卡下方） ---------------- */
+.ops {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: $sp-2;
   margin-bottom: $card-gap;
-  border-radius: $r-md;
-  background: $brand;
-  color: $card;
-  font-size: $fs-title;
-  font-weight: $fw-semibold;
-  line-height: $btn-h;
-  text-align: center;
+}
+
+.op {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  min-height: $btn-h;
+  padding: 14rpx 20rpx;
+  border-radius: $r-lg;
+  background: $card;
+  box-shadow: $shadow-card;
   @include press;
 
-  &[disabled] {
-    background: $brand-line;
+  &__ic {
+    width: $icon-box-sm;
+    height: $icon-box-sm;
+    border-radius: $r-md;
+    background: $fill;
+    color: $ink-2;
+    font-size: $fs-body;
+    line-height: $icon-box-sm;
+    text-align: center;
+    flex: none;
+  }
+
+  &__t {
+    font-size: $fs-title;
+    font-weight: $fw-medium;
+    color: $ink;
+  }
+
+  &--grant &__ic {
+    background: $idle-fill;
+    color: $idle-ink;
+  }
+
+  &--danger &__ic {
+    background: $busy-fill;
+    color: $busy-ink;
   }
 }
 

@@ -274,18 +274,21 @@ const routes: Route[] = [
   },
   {
     method: 'POST',
-    pattern: /^\/stations\/(\d+)\/power$/,
+    pattern: /^\/stations\/(\d+)\/(power|clean)$/,
     handler: ({ params, data }): { station: Station; message: string } => {
       const admin = requireAdmin()
+      const clean = params[1] === 'clean'
       const station = runtime.stations.find(s => s.id === Number(params[0]))
       if (!station) throw new ApiError(40404, '工位不存在')
       const action = String(data?.action || '')
       if (action !== 'on' && action !== 'off') throw new ApiError(40011, 'action 只能是 on 或 off')
       const workStatus = station.work_status ?? (station.order_id ? 2 : 1)
       if (station.order_id) throw new ApiError(41100, '工位有进行中的订单，请先结束订单')
-      // 与后端一致：通电 = work_status 1→3（清洁中），断电 = →1，都不校验 status（维护中也能通电）
+      // 与后端一致：占用 = work_status 1→3（清洁中），释放 = →1；clean 只换下发指令，状态机相同
       if (action === 'on' && workStatus !== 1) {
-        throw new ApiError(41100, workStatus === 3 ? '工位已在清洁中，无需重复通电' : '工位正在使用中，无法通电')
+        throw new ApiError(41100, workStatus === 3
+          ? (clean ? '工位已在清洁中，无需重复清洁' : '工位已在清洁中，无需重复通电')
+          : (clean ? '工位正在使用中，无法开始清洁' : '工位正在使用中，无法通电'))
       }
       station.work_status = action === 'on' ? 3 : 1
       if (station.status !== 'repair' && station.status !== 'off') {
@@ -294,10 +297,10 @@ const routes: Route[] = [
       station.power_state = action
       station.power_at = new Date().toISOString()
       station.power_by = admin.name
-      return {
-        station,
-        message: action === 'on' ? '已下发通电指令' : '已下发断电指令',
-      }
+      const message = clean
+        ? (action === 'on' ? '已下发清洁指令，工位进入清洁中' : '已下发取消清洁指令，工位恢复空闲')
+        : (action === 'on' ? '已下发通电指令' : '已下发断电指令')
+      return { station, message }
     },
   },
   {

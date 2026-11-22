@@ -64,11 +64,11 @@
       <text class="empty__desc">该门店未配置额外的门店工具</text>
     </view>
 
-    <!-- 门店工具：全部由能力配置下发（本期只有停车缴费） -->
-    <view v-for="cap in shopCaps" :key="cap.key" class="tool" @tap="openTool(cap)">
+    <!-- 门店工具：全部由能力配置下发（route=page 跳页 / batch_command 批量下发） -->
+    <view v-for="cap in shopCaps" :key="cap.key" class="tool" :class="{ 'tool--busy': batching }" @tap="openTool(cap)">
       <text class="tool__ic">{{ cap.icon }}</text>
       <view class="tool__body">
-        <text class="tool__t">{{ cap.name }}缴费</text>
+        <text class="tool__t">{{ cap.key === 'parking_fee' ? cap.name + '缴费' : cap.name }}</text>
         <text class="tool__s">{{ cap.desc }}</text>
       </view>
       <text class="tool__arrow">›</text>
@@ -78,6 +78,22 @@
       门店工具由该门店的能力配置下发，未启用则不显示。
       设备类操作（开门、通电保养、通风、毛巾柜）在工位详情里。
     </text>
+
+    <!-- 批量命令结果：跳过/失败逐条列出，避免「以为全成功了」 -->
+    <view v-if="batchResult" class="batchres">
+      <text class="batchres__t">{{ batchResult.key === 'power_on' ? '一键全通电' : batchResult.key === 'open_gate' ? '一键全开门' : '全通风' }}结果</text>
+      <text v-if="batchResult.key === 'ventilation'" class="batchres__sum">
+        已下发全通风指令 · 覆盖 {{ batchResult.total }} 个工位 · 设备侧依次执行
+      </text>
+      <text v-else class="batchres__sum">
+        共 {{ batchResult.total }} 个 · 成功 {{ batchResult.succeeded }} · 跳过 {{ batchResult.skipped.length }} · 失败 {{ batchResult.failed.length }}
+      </text>
+      <view v-for="item in [...batchResult.skipped, ...batchResult.failed]" :key="item.station_id" class="batchres__row">
+        <text class="batchres__name">{{ item.name }}</text>
+        <text class="batchres__reason">{{ item.reason }}</text>
+      </view>
+      <text class="batchres__close" @tap="batchResult = null">知道了</text>
+    </view>
 
     <!-- 底部悬浮切店条：切店入口只在这里 -->
     <view class="floatbar">
@@ -119,9 +135,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
-import { fetchCapabilities, fetchShopOverview, fetchShops } from '@/api/shop'
+import { fetchCapabilities, fetchShopOverview, fetchShops, sendShopBatchCommand } from '@/api/shop'
 import { fetchProfile } from '@/api/auth'
-import type { Capability, Shop, Station, StationStatus } from '@/types/api'
+import type { BatchCommandResult, Capability, Shop, Station, StationStatus } from '@/types/api'
 import { CURRENT_ENV } from '@/config/env'
 import { formatElapsed } from '@/utils/format'
 import { ApiError } from '@/utils/error'
@@ -148,6 +164,8 @@ const shopSheet = ref(false)
 const refreshAt = ref('')
 const now = ref(Date.now())
 const booted = ref(false)
+const batching = ref(false)
+const batchResult = ref<BatchCommandResult | null>(null)
 
 let timer: ReturnType<typeof setInterval> | null = null
 
@@ -287,7 +305,62 @@ const openDetail = (station: Station) => {
   Taro.navigateTo({ url: `/packageStation/pages/station-detail/index?id=${station.id}` })
 }
 
-const openTool = (cap: Capability) => {
+/** cap_key → 后端批量接口认的 key（能力表的 cap_key 只负责按钮配置，不进入单工位白名单） */
+const BATCH_KEYS: Record<string, 'open_gate' | 'power_on' | 'ventilation'> = {
+  batch_open_gate: 'open_gate',
+  batch_power_on: 'power_on',
+  batch_ventilation: 'ventilation',
+}
+
+const runBatch = async (cap: Capability) => {
+  if (batching.value || !shop.value) return
+  const key = BATCH_KEYS[cap.key]
+  if (!key) {
+    tip(`${cap.name}暂未接入`)
+    return
+  }
+  const count = stations.value.length
+  if (!count) {
+    tip('当前门店没有可操作的在线工位')
+    return
+  }
+  let confirmed = false
+  try {
+    const res = await Taro.showModal({
+      title: cap.name,
+      content: key === 'ventilation'
+        ? `将对全店 ${count} 个工位下发「全通风」，设备侧依次执行。确认？`
+        : `将对 ${count} 个在线工位下发「${cap.name}」指令。有订单、已通电或维护中的工位会自动跳过，确认执行？`,
+      confirmText: '执行',
+      confirmColor: '#E6436E',
+    })
+    confirmed = res.confirm
+  } catch {
+    confirmed = false
+  }
+  if (!confirmed) return
+
+  batching.value = true
+  try {
+    const result = await sendShopBatchCommand(shop.value.id, key)
+    batchResult.value = result
+    tip(key === 'ventilation'
+      ? `全通风已下发 · 覆盖 ${result.total} 个工位`
+      : `成功 ${result.succeeded} · 跳过 ${result.skipped.length} · 失败 ${result.failed.length}`)
+    // 通电会改 work_status，开门/通风会写审计，刷新首屏让工位卡片跟上
+    await loadShopData(shop.value.id)
+  } catch (error) {
+    tip(error instanceof ApiError ? error.message : '批量下发失败')
+  } finally {
+    batching.value = false
+  }
+}
+
+const openTool = async (cap: Capability) => {
+  if (cap.route === 'batch_command') {
+    await runBatch(cap)
+    return
+  }
   if (cap.key === 'parking_fee') {
     Taro.navigateTo({ url: `/packageStation/pages/parking/index?shop_id=${shop.value?.id || 0}` })
     return
@@ -585,6 +658,57 @@ usePullDownRefresh(async () => {
   &__arrow {
     font-size: $fs-h3;
     color: $ink-4;
+  }
+
+  &--busy {
+    opacity: .6;
+  }
+}
+
+/* ---------- 批量命令结果 ---------- */
+.batchres {
+  margin-top: 16rpx;
+  padding: 24rpx 28rpx;
+  border-radius: $r-2xl;
+  background: $card;
+  box-shadow: $shadow-card;
+
+  &__t {
+    display: block;
+    font-size: $fs-title;
+    font-weight: $fw-semibold;
+    color: $ink;
+  }
+
+  &__sum {
+    display: block;
+    margin-top: 8rpx;
+    font-size: $fs-body-sm;
+    color: $ink-2;
+  }
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16rpx;
+    padding: 12rpx 0;
+    border-top: $border-hairline;
+    font-size: $fs-caption;
+  }
+
+  &__name { color: $ink; flex: none; }
+  &__reason { color: $ink-3; text-align: right; }
+
+  &__close {
+    display: block;
+    margin-top: 16rpx;
+    text-align: center;
+    height: $btn-h-sm;
+    line-height: $btn-h-sm;
+    border-radius: $r-md;
+    background: $fill;
+    color: $ink-2;
+    font-size: $fs-body;
   }
 }
 
