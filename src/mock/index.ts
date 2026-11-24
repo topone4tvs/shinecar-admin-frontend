@@ -15,7 +15,7 @@ import type {
   UserDetail,
   UserList,
 } from '@/types/api'
-import { ADMINS, CAPABILITIES, SHOPS, STATION_USERS, runtime, type MockAdmin } from './data'
+import { ADMINS, CAPABILITIES, HOLD_STATE, SHOPS, STATION_USERS, runtime, type MockAdmin } from './data'
 
 /**
  * 内置 mock 分发层。
@@ -226,9 +226,9 @@ const routes: Route[] = [
       if (!station) throw new ApiError(40404, '工位不存在')
 
       // 设备类能力只取 placement=station 的项；门店工具（停车）不出现在工位详情
-      const capabilities = (CAPABILITIES[station.shop_id] || []).filter(
-        c => c.enabled && (c.placement ?? 'station') === 'station',
-      )
+      const capabilities = (CAPABILITIES[station.shop_id] || [])
+        .filter(c => c.enabled && (c.placement ?? 'station') === 'station')
+        .map(c => ({ ...c, active: Boolean(HOLD_STATE[`${station.id}:${c.key}`]) }))
 
       let order: StationDetail['order'] = null
       if (station.status === 'busy' && station.order_id && station.started_at) {
@@ -314,14 +314,30 @@ const routes: Route[] = [
       const messages: Record<string, string> = {
         open_gate: '已发送开门指令',
         voice: '语音播报已下发',
-        ventilation: '已开启通风，5 分钟后自动关闭',
+        ventilation: '已开启通风，3 分钟后自动关闭',
         towel_cabinet: '毛巾柜命令已下发',
+        towel_next: '已下发开柜指令，将按顺序打开下一格',
+        door_hold: '已下发常开门指令，门将保持开启',
+        door_close: '已下发关门指令',
+        ventilation_hold: '已下发常通风指令，风扇将持续运行',
+        ventilation_close: '已下发关闭通风指令',
       }
       const message = messages[key]
       if (!message) throw new ApiError(40010, `能力不存在：${key}`)
       // 设备离线：按文档「不假装成功」，返回未下发
       if (station.status === 'off') {
         return { accepted: false, key, message: '设备离线，指令未下发' }
+      }
+      // 开关型能力：记录常开态，下次打开详情按钮才会变成「关」
+      const holdKeys: Record<string, string> = {
+        door_hold: 'door_hold',
+        door_close: 'door_hold',
+        ventilation_hold: 'ventilation_hold',
+        ventilation_close: 'ventilation_hold',
+      }
+      const holdKey = holdKeys[key]
+      if (holdKey) {
+        HOLD_STATE[`${station.id}:${holdKey}`] = key.endsWith('_hold')
       }
       return { accepted: true, key, message }
     },

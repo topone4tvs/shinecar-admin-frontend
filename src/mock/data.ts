@@ -138,13 +138,69 @@ export const STATIONS: Station[] = [
 export const CAPABILITIES: Record<number, Capability[]> = {
   1: [
     { key: 'parking_fee', name: '停车', desc: '按车牌代缴', icon: '停', enabled: true, placement: 'shop', confirm: 'none' },
-    { key: 'ventilation', name: '通风', desc: '吹风散热', icon: '风', enabled: true, placement: 'station', confirm: 'confirm' },
+    {
+      key: 'ventilation',
+      name: '通风',
+      desc: '吹风散热',
+      icon: '风',
+      enabled: true,
+      placement: 'station',
+      confirm: 'confirm',
+      confirm_text: '3 分钟后自动关闭，以设备侧状态为准。',
+    },
   ],
+  // 2 号店（新店）才有常开门 / 常通风 / 开一格，1 号店没有——与线上能力表一致
   2: [
     { key: 'parking_fee', name: '停车', desc: '按车牌代缴', icon: '停', enabled: true, placement: 'shop', confirm: 'none' },
-    { key: 'ventilation', name: '通风', desc: '吹风散热', icon: '风', enabled: true, placement: 'station', confirm: 'confirm' },
+    {
+      key: 'door_hold',
+      name: '常开门',
+      desc: '继电器持续通电，点「关门」才结束',
+      icon: '开',
+      enabled: true,
+      placement: 'station',
+      confirm: 'confirm',
+      confirm_text: '门将保持开启，直到点「关门」或设备重新启动。期间开单/关单的开门点动不会自动关门。',
+      off_key: 'door_close',
+      off_title: '关门',
+    },
+    {
+      key: 'ventilation',
+      name: '通风',
+      desc: '吹风散热',
+      icon: '风',
+      enabled: true,
+      placement: 'station',
+      confirm: 'confirm',
+      confirm_text: '3 分钟后自动关闭，以设备侧状态为准。',
+    },
+    {
+      key: 'ventilation_hold',
+      name: '常通风',
+      desc: '一直运行，点「关闭通风」才停',
+      icon: '风',
+      enabled: true,
+      placement: 'station',
+      confirm: 'confirm',
+      confirm_text: '风扇将持续运行，直到点「关闭通风」或设备重新启动，不再按通风时长自动关闭。',
+      off_key: 'ventilation_close',
+      off_title: '关闭通风',
+    },
+    {
+      key: 'towel_next',
+      name: '开一格',
+      desc: '按顺序开下一格，跳过锁定格',
+      icon: '巾',
+      enabled: true,
+      placement: 'station',
+      confirm: 'confirm',
+      confirm_text: '将打开毛巾柜的下一格（自动跳过锁定格）。连点两次会连续开两格。',
+    },
   ],
 }
+
+/** mock 专用：开关型能力的当前状态（真实环境由后端按审计推算） */
+export const HOLD_STATE: Record<string, boolean> = {}
 
 /**
  * 工位 → 进行中订单的用户信息（工位详情聚合用）。

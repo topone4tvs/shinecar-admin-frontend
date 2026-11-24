@@ -141,10 +141,10 @@
             v-for="cap in deviceCaps"
             :key="cap.key"
             class="act"
-            :class="{ 'act--busy': acting }"
+            :class="{ 'act--busy': acting, 'act--on': isCapActive(cap) }"
             @tap="runCapability(cap)"
           >
-            <text class="act__ic act__ic--teal">{{ cap.icon }}</text>
+            <text class="act__ic act__ic--teal">{{ capabilityIcon(cap) }}</text>
             <text class="act__t">{{ capabilityLabel(cap) }}</text>
           </view>
         </view>
@@ -196,6 +196,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { fetchStation, sendCommand, setMaintenance, setStationClean } from '@/api/shop'
+import type { StationCommandKey } from '@/api/shop'
 import { finishOrder } from '@/api/order'
 import type { Capability, StationDetail } from '@/types/api'
 import { formatClock, formatDuration, formatMoney } from '@/utils/format'
@@ -225,10 +226,34 @@ let timer: ReturnType<typeof setInterval> | null = null
 const deviceCaps = computed(() => detail.value?.capabilities || [])
 
 /**
- * 按钮文案：能力表 title 只给主体词。
- * 毛巾柜是「整板全部锁」才拼「全开」；通风每工位只有一个风扇，不能叫全开。
+ * 开关型能力（常开门 / 常通风）当前是否处于「常开」。
+ * 由后端按审计推算：最后一次常开命令比关闭命令新即为常开。
+ * edge 重启会强制断开这两个线圈，此时云端状态可能还没跟上——点一下按钮补一条关闭命令即可。
  */
-const capabilityLabel = (cap: Capability) => (cap.key === 'towel_cabinet' ? `${cap.name}全开` : cap.name)
+const isCapActive = (cap: Capability) => Boolean(cap.active && cap.off_key)
+
+/** 未配 confirm_text 的兜底文案（新能力一律走能力表下发，不再按 key 硬编码） */
+const CONFIRM_FALLBACK: Record<string, string> = {
+  ventilation: '3 分钟后自动关闭，以设备侧状态为准。',
+  towel_cabinet: '将打开本工位毛巾柜的全部格子。',
+}
+
+/**
+ * 按钮文案：能力表 title 只给主体词。
+ * 常开态原地变成「关门 / 关闭通风」（off_title），毛巾柜是「整板全部锁」才拼「全开」；
+ * 通风每工位只有一个风扇，不能叫全开。
+ */
+const capabilityLabel = (cap: Capability) => {
+  if (isCapActive(cap)) return cap.off_title || '关闭'
+  return cap.key === 'towel_cabinet' ? `${cap.name}全开` : cap.name
+}
+
+/** 常开态图标换成「关」，让现场一眼看出这个按钮现在是关闭动作 */
+const capabilityIcon = (cap: Capability) => (isCapActive(cap) ? '关' : cap.icon)
+
+/** 点击实际下发的 key：常开态下改成关闭动作 */
+const capabilityCommand = (cap: Capability) =>
+  (isCapActive(cap) ? cap.off_key || cap.key : cap.key) as StationCommandKey
 
 /** 清洁/通电态：与 status 正交，维护中 + 清洁 = 保养中（power_state 是后端沿用字段名） */
 const powerOn = computed(() => detail.value?.power_state === 'on')
@@ -512,24 +537,28 @@ const doClean = async () => {
   }
 }
 
-/** 扩展设备命令：confirm 类型先二次确认 */
+/**
+ * 扩展设备命令：confirm 类型先二次确认。
+ * 开关型能力开启后按钮变成关闭动作，下发的是 off_key（door_close / ventilation_close）。
+ */
 const runCapability = async (cap: Capability) => {
   if (!detail.value || acting.value) return
+  const label = capabilityLabel(cap)
   if (cap.confirm === 'confirm') {
     const res = await Taro.showModal({
-      title: `开启${capabilityLabel(cap)}？`,
-      content: cap.key === 'ventilation'
-        ? '5 分钟后自动关闭，以设备侧状态为准。'
-        : '将打开本工位毛巾柜的全部格子。',
-      confirmText: '开启',
-      confirmColor: '#E6436E',
+      title: `确认${label}？`,
+      content: cap.confirm_text || CONFIRM_FALLBACK[cap.key] || '指令下发后以设备侧状态为准。',
+      confirmText: '确认',
+      confirmColor: isCapActive(cap) ? '#D93026' : '#E6436E',
     })
     if (!res.confirm) return
   }
   acting.value = true
   try {
-    const res = await sendCommand(detail.value.id, cap.key as 'ventilation')
+    const res = await sendCommand(detail.value.id, capabilityCommand(cap))
     tip(res.message)
+    // 常开/关闭后要刷新，按钮文案与高亮才能跟着变
+    await load()
   } catch (error) {
     tip(error instanceof ApiError ? error.message : '指令下发失败')
   } finally {
