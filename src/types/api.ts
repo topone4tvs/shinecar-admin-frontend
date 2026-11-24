@@ -80,6 +80,16 @@ export interface Capability {
   confirm?: 'none' | 'confirm' | 'sheet'
   /** 点击后的行为：page 跳页 / device_command 单工位命令 / batch_command 店铺批量 */
   route?: 'page' | 'device_command' | 'batch_command'
+  /** 二次确认文案（能力表 config.confirm_text）。缺失时前端按 key 兜底 */
+  confirm_text?: string
+  /**
+   * 开关型能力（常开门 / 常通风）：开启后同一个按钮原地变成「关闭」。
+   * off_title 是关闭态文案，off_key 是关闭时下发的命令 key。
+   */
+  off_title?: string
+  off_key?: string
+  /** 当前是否处于常开（后端按审计推算，edge 的常开标记是内存态不回传） */
+  active?: boolean
 }
 
 /** 店铺级批量命令返回：部分成功不回滚 */

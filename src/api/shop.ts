@@ -50,10 +50,25 @@ export const setStationClean = (stationId: number, action: 'on' | 'off') =>
     { timeout: 8000 },
   )
 
-/** 统一设备命令入口：开门 / 语音 / 通风 / 毛巾柜 */
+/**
+ * 单工位设备命令 key。
+ * 只有 002 才配了后 5 个（能力表决定按钮是否存在），001 打过来会被后端拒绝。
+ */
+export type StationCommandKey =
+  | 'open_gate'
+  | 'voice'
+  | 'ventilation'
+  | 'towel_cabinet'
+  | 'towel_next'
+  | 'door_hold'
+  | 'door_close'
+  | 'ventilation_hold'
+  | 'ventilation_close'
+
+/** 统一设备命令入口：开门 / 语音 / 通风 / 毛巾柜 / 常开门 / 常通风 */
 export const sendCommand = (
   stationId: number,
-  key: 'open_gate' | 'voice' | 'ventilation' | 'towel_cabinet',
+  key: StationCommandKey,
   params?: Record<string, unknown>,
 ) =>
   post<{ accepted: boolean; key: string; message: string }>(
