@@ -81,7 +81,7 @@ const toggleMock = async () => {
 }
 
 const handleLogout = async () => {
-  const res = await Taro.showModal({ title: '退出登录', content: '退出后需要重新用手机号与授权码绑定。' })
+  const res = await Taro.showModal({ title: '退出登录', content: '退出后需要重新用授权码绑定。' })
   if (!res.confirm) return
   try {
     await logout()
