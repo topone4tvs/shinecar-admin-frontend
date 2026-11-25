@@ -186,26 +186,43 @@ export interface OrderDetail extends OrderItem {
   parking_paid_at?: string
   can_finish: boolean
   can_pay_parking: boolean
+  /** 整洁奖励审核：有提交才返回，详情页据此内嵌审核卡片 */
+  cleanup_review_id?: number
+  cleanup_review_status?: ReviewStatus
+  /** 奖励金额（元） */
+  cleanup_review_amount?: number
+  cleanup_review_remark?: string
+  cleanup_review_photos?: string[]
 }
 
 export type ReviewStatus = 'pending' | 'draft' | 'approved' | 'rejected'
 
 export interface ReviewItem {
   id: number
+  /** 订单数字 ID（order_no 是它的字符串形式，保留给旧代码） */
+  order_id: number
   order_no: string
   shop_id: number
   shop_name: string
   station_name: string
+  user_id: number
   /** 奖励金额（元） */
   amount: number
+  /** 奖励金额（分） */
+  reward_fen: number
   user_phone_masked: string
   plate_no: string
   submitted_at: string
   waited_text: string
+  /** 现场照片完整 URL（审核员必须看到图才能判断） */
+  photos: string[]
   photo_count: number
   status: ReviewStatus
   /** 拒绝理由，仅 rejected 返回 */
   review_remark?: string
+  reviewed_at?: string
+  /** 返现状态：granted 有流水 / skipped 金额 0 / none 未通过 */
+  reward_state?: 'granted' | 'skipped' | 'none'
 }
 
 export interface UserDetail {

@@ -454,6 +454,8 @@ const routes: Route[] = [
       if (!order) throw new ApiError(40405, '订单不存在')
       const payState = order.status === 'ongoing' ? 'unpaid' : order.amount === 0 ? 'free' : 'paid'
       const finished = order.status === 'done'
+      // 详情接口直接带审核状态，前端不再去待审列表里按订单号翻
+      const review = runtime.reviews.find(r => r.order_no === order.order_no)
       return {
         ...order,
         user_id: 500 + order.id,
@@ -470,6 +472,11 @@ const routes: Route[] = [
         parking_paid_at: undefined,
         can_finish: order.status === 'ongoing',
         can_pay_parking: Boolean(order.plate_no),
+        cleanup_review_id: review?.id,
+        cleanup_review_status: review?.status,
+        cleanup_review_amount: review?.amount,
+        cleanup_review_remark: review?.review_remark,
+        cleanup_review_photos: review?.photos,
       }
     },
   },
@@ -478,11 +485,32 @@ const routes: Route[] = [
   {
     method: 'GET',
     pattern: /^\/reviews$/,
-    handler: ({ data }): { total: number; list: ReviewItem[] } => {
+    handler: ({ data }): { total: number; page: number; page_size: number; list: ReviewItem[] } => {
       requireAdmin()
       const status = String(data?.status || 'pending')
-      const list = runtime.reviews.filter(r => r.status === status)
-      return { total: list.length, list }
+      const page = Math.max(1, Number(data?.page) || 1)
+      const size = Math.min(50, Math.max(1, Number(data?.page_size) || 20))
+      const all = status === 'all' ? runtime.reviews : runtime.reviews.filter(r => r.status === status)
+      const list = all.slice((page - 1) * size, page * size)
+      return { total: all.length, page, page_size: size, list }
+    },
+  },
+  {
+    method: 'GET',
+    pattern: /^\/reviews\/meta$/,
+    handler: () => {
+      requireAdmin()
+      return { reject_reasons: ['照片不清晰，无法判断', '场地未清洁干净', '照片与订单不符', '重复提交'] }
+    },
+  },
+  {
+    method: 'GET',
+    pattern: /^\/reviews\/(\d+)$/,
+    handler: ({ params }): ReviewItem => {
+      requireAdmin()
+      const review = runtime.reviews.find(r => r.id === Number(params[0]))
+      if (!review) throw new ApiError(40406, '审核记录不存在')
+      return review
     },
   },
   {
@@ -494,6 +522,7 @@ const routes: Route[] = [
       if (!review) throw new ApiError(40406, '待审记录不存在')
       if (review.status !== 'pending') throw new ApiError(40902, '该记录已被处理')
       review.status = 'approved'
+      review.reward_state = 'granted'
       review.waited_text = '已处理'
       return review
     },
