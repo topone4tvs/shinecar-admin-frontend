@@ -146,11 +146,9 @@ const routes: Route[] = [
     method: 'POST',
     pattern: /^\/auth\/bind$/,
     handler: ({ data }) => {
-      const phone = String(data?.phone || '').trim()
       const code = String(data?.auth_code || '').trim()
-      const admin = ADMINS.find(a => a.phone === phone)
-      if (!admin) throw new ApiError(40001, '该手机号未开通管理员权限，请联系总部运营')
-      if (admin.auth_code !== code) throw new ApiError(40002, '授权码不正确或已失效')
+      const admin = ADMINS.find(a => a.auth_code === code)
+      if (!admin) throw new ApiError(40002, '授权码不正确或已失效')
       setBoundId(admin.id)
       return {
         token: `mock-token-${admin.id}`,
@@ -661,4 +659,4 @@ export async function dispatchMock<T>(path: string, method: string, data?: Recor
 
 /** 「我的」页展示用：当前 mock 可登录的账号（仅 mock 开启时读取） */
 export const mockAccounts = () =>
-  ADMINS.map(a => ({ name: a.name, phone: a.phone, code: a.auth_code, role: a.role_text }))
+  ADMINS.map(a => ({ name: a.name, code: a.auth_code, role: a.role_text }))

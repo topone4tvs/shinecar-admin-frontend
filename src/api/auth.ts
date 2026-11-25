@@ -12,7 +12,6 @@ export interface WxLoginResp {
 
 export interface BindReq {
   ticket: string
-  phone: string
   auth_code: string
 }
 
@@ -26,7 +25,7 @@ export interface AuthResult {
 export const wxLogin = (code: string) =>
   post<WxLoginResp>('/auth/wx-login', { code }, { auth: false })
 
-/** 手机号 + 授权码绑定微信 */
+/** 授权码绑定微信（不再需要手机号） */
 export const bind = (payload: BindReq) =>
   post<AuthResult>('/auth/bind', payload, { auth: false })
 
