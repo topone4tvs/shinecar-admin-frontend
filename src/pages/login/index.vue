@@ -28,7 +28,7 @@
             微信身份已识别
             <text class="step__badge">已授权</text>
           </view>
-          <view class="step__desc">仅用于识别当前微信身份，不读取昵称、头像与手机号。</view>
+          <view class="step__desc">仅用于识别当前微信身份，不读取昵称、头像等个人信息。</view>
         </view>
       </view>
 
@@ -37,19 +37,6 @@
         <view class="step__no">2</view>
         <view class="step__main">
           <view class="step__title">绑定管理员账号</view>
-
-          <view class="field">
-            <text class="field__label">手机号</text>
-            <input
-              :value="phone"
-              class="field__input"
-              type="number"
-              maxlength="11"
-              placeholder="请输入 11 位手机号"
-              placeholder-class="field__ph"
-              @input="onPhoneInput"
-            />
-          </view>
 
           <view class="field">
             <text class="field__label">授权码</text>
@@ -66,7 +53,7 @@
           <button class="btn" :loading="binding" :disabled="binding" @tap="handleBind">登录</button>
 
           <view class="step__hint">
-            授权码由总部在后台创建账号时生成，8 位数字与大小写字母组合，首次绑定后失效。
+            无需输入手机号。授权码由总部在创建账号时生成，8 位数字与大小写字母组合，首次绑定后失效。
           </view>
         </view>
       </view>
@@ -82,13 +69,12 @@
     <view v-if="mockOn && step === 2" class="mock">
       <view class="mock__tag">演示模式</view>
       <view class="mock__desc">当前未连接后端，界面与交互使用内置示例数据。点账号可一键填入。</view>
-      <view v-for="item in accounts" :key="item.phone" class="mock__row" @tap="fill(item.phone, item.code)">
+      <view v-for="item in accounts" :key="item.code" class="mock__row" @tap="fill(item.code)">
         <view class="mock__left">
           <text class="mock__name">{{ item.name }}</text>
           <text class="mock__role">{{ item.role }}</text>
         </view>
         <view class="mock__right">
-          <text class="mock__phone">{{ item.phone }}</text>
           <text class="mock__code">{{ item.code }}</text>
         </view>
       </view>
@@ -116,7 +102,6 @@ const enterError = ref('')
 const authorizing = ref(false)
 const binding = ref(false)
 const ticket = ref('')
-const phone = ref('')
 const authCode = ref('')
 
 const mockOn = isMockEnabled()
@@ -132,9 +117,6 @@ const enableDemo = () => {
 
 const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1800 })
 
-const onPhoneInput = (event: unknown) => {
-  phone.value = inputValue(event)
-}
 const onCodeInput = (event: unknown) => {
   authCode.value = inputValue(event)
 }
@@ -217,10 +199,6 @@ useDidShow(bootOnce)
 
 const handleBind = async () => {
   if (binding.value) return
-  if (!/^1\d{10}$/.test(phone.value.trim())) {
-    tip('请输入 11 位手机号')
-    return
-  }
   if (!/^[A-Za-z0-9]{8}$/.test(authCode.value.trim())) {
     tip('授权码为 8 位数字与字母组合')
     return
@@ -228,7 +206,7 @@ const handleBind = async () => {
 
   binding.value = true
   try {
-    const resp = await bind({ ticket: ticket.value, phone: phone.value.trim(), auth_code: authCode.value.trim() })
+    const resp = await bind({ ticket: ticket.value, auth_code: authCode.value.trim() })
     auth.applyAuth(resp.token, resp.profile)
     Taro.showToast({ title: '绑定成功', icon: 'success', duration: 800 })
     setTimeout(gotoWorkbench, 500)
@@ -239,8 +217,7 @@ const handleBind = async () => {
   }
 }
 
-const fill = (nextPhone: string, nextCode: string) => {
-  phone.value = nextPhone
+const fill = (nextCode: string) => {
   authCode.value = nextCode
 }
 </script>
@@ -539,12 +516,6 @@ const fill = (nextPhone: string, nextCode: string) => {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-  }
-
-  &__phone {
-    font-size: $fs-caption;
-    color: $ink-2;
-    @include tabular;
   }
 
   &__code {
