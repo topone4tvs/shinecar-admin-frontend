@@ -10,6 +10,8 @@ export interface OrderQuery {
   shop_id?: number
   /** today | 7d | all */
   range?: 'today' | '7d' | 'all'
+  /** 订单状态：不传 = 全部 */
+  status?: 'ongoing' | 'done' | 'canceled'
 }
 
 /** 跨店订单查询，不受「现场」页当前门店影响 */

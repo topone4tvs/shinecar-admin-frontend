@@ -459,6 +459,9 @@ export const USERS: UserDetail[] = [
     plate_no: '沪A·D2311',
     vehicles: ['沪A·D2311'],
     order_count: 42,
+    ongoing_orders: 1,
+    status: 0,
+    status_text: '正常',
     last_order_at: '刚刚',
     is_newer: false,
     balance_logs: [

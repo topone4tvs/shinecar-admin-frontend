@@ -425,12 +425,14 @@ const routes: Route[] = [
       const plate = normalizePlate(data?.plate)
       const shopId = Number(data?.shop_id || 0)
       const range = String(data?.range || '7d')
+      const status = String(data?.status || '')
       const now = new Date()
 
       let list = runtime.orders.filter(order => {
         if (shopId && order.shop_id !== shopId) return false
         if (phone && ORDER_PHONES[order.id] !== phone) return false
         if (plate && !normalizePlate(order.plate_no).includes(plate)) return false
+        if (status && order.status !== status) return false
         if (range === 'today' && !isSameDay(new Date(order.started_at), now)) return false
         if (range === '7d' && now.getTime() - new Date(order.started_at).getTime() > 7 * 86400000) return false
         return true
@@ -608,6 +610,115 @@ const routes: Route[] = [
       const user = runtime.users.find(u => u.id === Number(params[0]))
       if (!user) throw new ApiError(40407, '用户不存在')
       return user
+    },
+  },
+  // ---- 退款 / 清零 / 拉黑（mock 只做结构验证，不做窗口计算）----
+  {
+    method: 'GET',
+    pattern: /^\/users\/(\d+)\/refundable$/,
+    handler: ({ params }) => {
+      requireAdmin()
+      const user = runtime.users.find(u => u.id === Number(params[0]))
+      if (!user) throw new ApiError(40407, '用户不存在')
+      // 简化口径：充值余额就是可退额（真实后端按窗口内的消费与已退逐笔算）
+      const refundableFen = Math.round(user.recharge_balance * 100)
+      return {
+        user_id: user.id,
+        balance: Math.round(user.balance * 100),
+        bonus: Math.round(user.bonus_balance * 100),
+        refundable_amount: refundableFen,
+        window_recharge: refundableFen,
+        window_consume: 0,
+        window_refunded: 0,
+        recharge_orders:
+          refundableFen > 0
+            ? [
+                {
+                  order_no: `R${user.id}0001`,
+                  amount: refundableFen,
+                  refunded_amount: 0,
+                  remaining: refundableFen,
+                  expired: false,
+                },
+              ]
+            : [],
+      }
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/users\/(\d+)\/refund$/,
+    handler: ({ params, data }) => {
+      requireAdmin()
+      const user = runtime.users.find(u => u.id === Number(params[0]))
+      if (!user) throw new ApiError(40407, '用户不存在')
+      if (String(data?.reason || '').trim().length < 2) {
+        throw new ApiError(40011, '请填写退款原因（至少 2 个字）')
+      }
+      const refundableFen = Math.round(user.recharge_balance * 100)
+      if (refundableFen <= 0) throw new ApiError(41100, '该用户没有可退的充值单')
+      user.recharge_balance = 0
+      user.bonus_balance = 0
+      user.balance = 0
+      return {
+        refundable_amount: refundableFen,
+        refunded_amount: refundableFen,
+        cleared: true,
+        items: [{ order_no: `R${user.id}0001`, amount: refundableFen, status: 'success' }],
+      }
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/users\/(\d+)\/clear$/,
+    handler: ({ params }) => {
+      requireAdmin()
+      const user = runtime.users.find(u => u.id === Number(params[0]))
+      if (!user) throw new ApiError(40407, '用户不存在')
+      const amount = Math.round(user.balance * 100)
+      user.recharge_balance = 0
+      user.bonus_balance = 0
+      user.balance = 0
+      return { cleared: true, amount }
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/users\/(\d+)\/ban$/,
+    handler: ({ params, data }) => {
+      requireAdmin()
+      const user = runtime.users.find(u => u.id === Number(params[0]))
+      if (!user) throw new ApiError(40407, '用户不存在')
+      if (user.status === 999) throw new ApiError(41100, '该用户已在黑名单')
+      if (String(data?.reason || '').trim().length < 2) {
+        throw new ApiError(40011, '请填写拉黑原因（至少 2 个字）')
+      }
+      const cleared = Math.round(user.balance * 100)
+      user.recharge_balance = 0
+      user.bonus_balance = 0
+      user.balance = 0
+      user.status = 999
+      user.status_text = '黑名单'
+      return {
+        user_id: user.id,
+        status: 999,
+        status_text: '黑名单',
+        cleared_fen: cleared,
+        ongoing_orders: user.ongoing_orders || 0,
+      }
+    },
+  },
+  {
+    method: 'POST',
+    pattern: /^\/users\/(\d+)\/unban$/,
+    handler: ({ params }) => {
+      requireAdmin()
+      const user = runtime.users.find(u => u.id === Number(params[0]))
+      if (!user) throw new ApiError(40407, '用户不存在')
+      if (user.status !== 999) throw new ApiError(41100, '该用户不在黑名单')
+      user.status = 0
+      user.status_text = '正常'
+      return { user_id: user.id, status: 0, status_text: '正常', cleared_fen: 0, ongoing_orders: 0 }
     },
   },
 ]
