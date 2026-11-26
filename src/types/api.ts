@@ -225,6 +225,11 @@ export interface UserDetail {
   plate_no?: string
   vehicles: string[]
   order_count: number
+  /** 进行中订单数：拉黑前提示清零会形成欠款 */
+  ongoing_orders?: number
+  /** 0 正常 / 1 预警 / 999 黑名单 */
+  status?: number
+  status_text?: string
   last_order_at?: string
   is_newer: boolean
   /** 最近余额流水（后端给最近 20 条） */
@@ -290,4 +295,61 @@ export interface ParkingRecord {
   plate_no: string
   paid_at: string
   operator: string
+}
+
+// ---------------- 充值退款 / 清零 / 拉黑 ----------------
+
+/** 窗口内一笔充值单的可退明细（金额单位：分） */
+export interface RefundableOrder {
+  order_no: string
+  amount: number
+  refunded_amount: number
+  remaining: number
+  paid_at?: string
+  /** 已过微信 365 天退款窗口 */
+  expired: boolean
+}
+
+/** 可退额度详情：金额单位全部是「分」，展示前除以 100 */
+export interface RefundableDetail {
+  user_id: number
+  balance: number
+  bonus: number
+  refundable_amount: number
+  window_start?: string
+  window_recharge: number
+  window_consume: number
+  window_refunded: number
+  recharge_orders: RefundableOrder[]
+}
+
+export interface RefundAllItem {
+  order_no: string
+  amount: number
+  status: 'success' | 'skipped' | 'failed'
+  refund_no?: string
+  reason?: string
+}
+
+export interface RefundAllResult {
+  refundable_amount: number
+  refunded_amount: number
+  cleared: boolean
+  items: RefundAllItem[]
+}
+
+export interface ClearBalanceResult {
+  cleared: boolean
+  /** 清零前余额（分） */
+  amount: number
+}
+
+export interface BanResult {
+  user_id: number
+  status: number
+  status_text: string
+  /** 拉黑时清掉的余额（分） */
+  cleared_fen: number
+  /** 拉黑时进行中的订单数 */
+  ongoing_orders: number
 }

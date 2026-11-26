@@ -31,6 +31,19 @@
         </view>
       </view>
 
+      <!-- 状态筛选：后端 /orders 已支持 status，之前前端没发 -->
+      <view v-if="mode === 'order'" class="filters__row">
+        <view
+          v-for="item in STATUS_FILTERS"
+          :key="item.key || 'all'"
+          class="chip"
+          :class="{ 'chip--active': status === item.key }"
+          @tap="setStatus(item.key)"
+        >
+          {{ item.label }}
+        </view>
+      </view>
+
       <view class="field">
         <text class="field__label">手机号</text>
         <input
@@ -177,6 +190,15 @@ const RANGES: Array<{ key: 'today' | '7d' | 'all'; label: string }> = [
   { key: 'all', label: '全部' },
 ]
 
+type StatusFilter = '' | 'ongoing' | 'done' | 'canceled'
+
+const STATUS_FILTERS: Array<{ key: StatusFilter; label: string }> = [
+  { key: '', label: '不限状态' },
+  { key: 'ongoing', label: '进行中' },
+  { key: 'done', label: '已完成' },
+  { key: 'canceled', label: '已取消' },
+]
+
 const STATE_TEXT: Record<OrderStatus, string> = {
   ongoing: '进行中',
   done: '已完成',
@@ -184,6 +206,7 @@ const STATE_TEXT: Record<OrderStatus, string> = {
 }
 
 const range = ref<'today' | '7d' | 'all'>('7d')
+const status = ref<StatusFilter>('')
 const phone = ref('')
 const plate = ref('')
 const shops = ref<Shop[]>([])
@@ -209,6 +232,11 @@ const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1
 
 const setRange = (key: 'today' | '7d' | 'all') => {
   range.value = key
+}
+
+/** 切状态只改选中项，不发请求：与其他筛选一致，点「搜索订单」才查 */
+const setStatus = (key: StatusFilter) => {
+  status.value = key
 }
 
 const onPhoneInput = (event: unknown) => {
@@ -270,6 +298,7 @@ const doSearch = async () => {
       plate: plate.value.trim() || undefined,
       shop_id: shopId.value || undefined,
       range: range.value,
+      status: status.value || undefined,
     }
     const res = await searchOrders(query)
     list.value = res.list

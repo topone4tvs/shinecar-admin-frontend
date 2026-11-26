@@ -11,6 +11,7 @@
           <view class="who__row">
             <text class="who__name">{{ user.nickname }}</text>
             <text v-if="user.is_newer" class="who__tag">新人</text>
+            <text v-if="isBlack" class="who__tag who__tag--black">黑名单</text>
           </view>
           <text class="who__phone">{{ user.phone_masked }}</text>
         </view>
@@ -41,7 +42,7 @@
           <text class="op__ic">赠</text>
           <text class="op__t">赠款</text>
         </view>
-        <view class="op" @tap="comingSoon('退款')">
+        <view class="op" @tap="openRefund">
           <text class="op__ic">退</text>
           <text class="op__t">退款</text>
         </view>
@@ -49,9 +50,9 @@
           <text class="op__ic">调</text>
           <text class="op__t">调整余额</text>
         </view>
-        <view class="op op--danger" @tap="comingSoon('拉黑')">
-          <text class="op__ic">黑</text>
-          <text class="op__t">拉黑</text>
+        <view class="op op--danger" @tap="toggleBan">
+          <text class="op__ic">{{ isBlack ? '解' : '黑' }}</text>
+          <text class="op__t">{{ isBlack ? '解封' : '拉黑' }}</text>
         </view>
       </view>
 
@@ -169,6 +170,60 @@
           </view>
         </view>
       </view>
+
+      <!-- 退款 / 清零弹层：可退额度按「窗口内充值 - 窗口内消费 - 已退」算，逐笔原路退 -->
+      <view v-if="refundOpen" class="mask" @tap="closeRefund">
+        <view class="sheet" @tap.stop>
+          <view class="sheet__head">
+            <text class="sheet__title">退款 / 清零</text>
+            <text class="sheet__balance">
+              可退 {{ refundLoading ? '查询中…' : formatMoney(refundYuan) }} · 当前余额 {{ formatMoney(user.balance) }}
+            </text>
+          </view>
+
+          <view v-if="refundLoading" class="sheet__tip">正在查询可退额度…</view>
+
+          <template v-else>
+            <view class="refund">
+              <view v-for="item in refundOrders" :key="item.order_no" class="refund__row">
+                <text class="refund__no">{{ item.order_no }}</text>
+                <text class="refund__amt">{{ formatMoney(item.remaining / 100) }}</text>
+                <text v-if="item.expired" class="refund__flag">超期</text>
+              </view>
+              <view v-if="!refundOrders.length" class="refund__empty">该用户没有可原路退回的充值单</view>
+            </view>
+
+            <view class="sheet__field">
+              <text class="sheet__label">原因</text>
+              <input
+                class="sheet__input"
+                :value="refundReason"
+                maxlength="50"
+                placeholder="如：用户申请退款"
+                placeholder-class="sheet__ph"
+                @input="onRefundReasonInput"
+              />
+            </view>
+
+            <view class="sheet__tip">
+              退款原路退回微信（超过 365 天的单无法退，会跳过）；退款成功后余额清零。
+              「仅清零」不退钱，只把充值余额与赠送余额归零。
+            </view>
+
+            <view class="sheet__acts">
+              <button class="sheet__btn sheet__btn--ghost" :disabled="refunding" @tap="doClear">仅清零</button>
+              <button
+                class="sheet__btn"
+                :loading="refunding"
+                :disabled="refunding || !canRefund"
+                @tap="submitRefund"
+              >
+                确认退款
+              </button>
+            </view>
+          </template>
+        </view>
+      </view>
     </template>
   </view>
 </template>
@@ -176,8 +231,16 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import Taro, { useRouter } from '@tarojs/taro'
-import { adjustUserBalance, fetchUser } from '@/api/user'
-import type { UserDetail } from '@/types/api'
+import {
+  adjustUserBalance,
+  banUser,
+  clearUserBalance,
+  fetchRefundable,
+  fetchUser,
+  refundUser,
+  unbanUser,
+} from '@/api/user'
+import type { RefundableDetail, UserDetail } from '@/types/api'
 import { formatDateTime, formatMoney } from '@/utils/format'
 import { ApiError } from '@/utils/error'
 import { inputValue } from '@/utils/input'
@@ -209,8 +272,7 @@ const displayPlate = (plate: string) => plate || '—'
 
 const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1600 })
 
-/** 退款 / 拉黑入口先占位：后端口径未定，不做「点了没反应」的假功能 */
-const comingSoon = (name: string) => tip(`${name}功能即将开放`)
+const isBlack = computed(() => user.value?.status === 999)
 
 const copyText = (text: string) => {
   Taro.setClipboardData({ data: text })
@@ -352,6 +414,177 @@ const submitAdjust = async () => {
   }
 }
 
+// ---------------- 退款 / 清零 ----------------
+//
+// 金额口径：后端全部用「分」，这里只在展示时除以 100，
+// 避免前端二次换算（Math.round(元*100) 只用在提交余额调整那一处）。
+
+const refundOpen = ref(false)
+const refundLoading = ref(false)
+const refunding = ref(false)
+const refundReason = ref('')
+const refundDetail = ref<RefundableDetail | null>(null)
+
+const refundYuan = computed(() => (refundDetail.value?.refundable_amount || 0) / 100)
+const refundOrders = computed(() => refundDetail.value?.recharge_orders || [])
+const canRefund = computed(() => (refundDetail.value?.refundable_amount || 0) > 0)
+
+const openRefund = async () => {
+  if (!user.value) return
+  refundOpen.value = true
+  refundReason.value = ''
+  refundDetail.value = null
+  refundLoading.value = true
+  try {
+    // 可退额度是实时算的（窗口起点 + 窗口内充值 - 消费 - 已退），必须现查不能缓存
+    refundDetail.value = await fetchRefundable(user.value.id)
+  } catch (error) {
+    tip(error instanceof ApiError ? error.message : '查询可退额度失败')
+  } finally {
+    refundLoading.value = false
+  }
+}
+
+const closeRefund = () => {
+  if (refunding.value) return
+  refundOpen.value = false
+}
+
+const onRefundReasonInput = (event: unknown) => {
+  refundReason.value = inputValue(event)
+}
+
+const submitRefund = async () => {
+  const current = user.value
+  if (!current || refunding.value) return
+  const reason = refundReason.value.trim()
+  if (reason.length < 2) {
+    tip('请填写退款原因（至少 2 个字）')
+    return
+  }
+
+  let confirmed = false
+  try {
+    const res = await Taro.showModal({
+      title: '确认原路退款',
+      content: `向 ${current.nickname} 原路退回 ${formatMoney(refundYuan.value)}，退款完成后余额清零。该操作不可撤销。`,
+      confirmText: '确认退款',
+      confirmColor: '#E6436E',
+    })
+    confirmed = res.confirm
+  } catch {
+    confirmed = false
+  }
+  if (!confirmed) return
+
+  refunding.value = true
+  try {
+    const result = await refundUser(current.id, reason)
+    const failed = result.items.filter(item => item.status === 'failed').length
+    if (failed > 0) {
+      // 部分失败必须让操作员知道：成功的已退，失败的要去微信后台看
+      tip(`已退 ${formatMoney(result.refunded_amount / 100)}，${failed} 笔失败`)
+    } else {
+      tip(`已退 ${formatMoney(result.refunded_amount / 100)}`)
+    }
+    refundOpen.value = false
+    await load()
+  } catch (error) {
+    tip(error instanceof ApiError ? error.message : '退款失败')
+  } finally {
+    refunding.value = false
+  }
+}
+
+const doClear = async () => {
+  const current = user.value
+  if (!current || refunding.value) return
+
+  let confirmed = false
+  try {
+    const res = await Taro.showModal({
+      title: '仅清零余额',
+      content: `把 ${current.nickname} 的余额 ${formatMoney(current.balance)} 直接清零（不退钱）。该操作不可撤销。`,
+      confirmText: '确认清零',
+      confirmColor: '#D93026',
+    })
+    confirmed = res.confirm
+  } catch {
+    confirmed = false
+  }
+  if (!confirmed) return
+
+  refunding.value = true
+  try {
+    const result = await clearUserBalance(current.id)
+    tip(`已清零 ${formatMoney(result.amount / 100)}`)
+    refundOpen.value = false
+    await load()
+  } catch (error) {
+    tip(error instanceof ApiError ? error.message : '清零失败')
+  } finally {
+    refunding.value = false
+  }
+}
+
+// ---------------- 拉黑 / 解封 ----------------
+
+const banning = ref(false)
+
+const toggleBan = async () => {
+  const current = user.value
+  if (!current || banning.value) return
+
+  const black = isBlack.value
+  // 有进行中订单时把后果说清楚：清零后这些单结束会扣不到钱，落成欠款
+  const ongoing = current.ongoing_orders || 0
+  const ongoingText = !black && ongoing > 0
+    ? `；该用户有 ${ongoing} 笔进行中订单，结束后扣费会失败并形成欠款`
+    : ''
+  const content = black
+    ? '解封后该用户可再次下单；封禁时清零的余额不会恢复。请填写原因：'
+    : `将清空余额 ${formatMoney(current.balance)} 并禁止下单${ongoingText}。请填写原因：`
+
+  let remark = ''
+  let confirmed = false
+  try {
+    const res = await Taro.showModal({
+      title: black ? '解除黑名单' : '拉黑用户',
+      content,
+      editable: true,
+      placeholderText: black ? '如：用户申诉通过' : '如：恶意占用工位',
+      confirmText: black ? '确认解封' : '确认拉黑',
+      confirmColor: '#D93026',
+    })
+    confirmed = res.confirm
+    remark = (res.content || '').trim()
+  } catch {
+    confirmed = false
+  }
+  if (!confirmed) return
+
+  if (!black && remark.length < 2) {
+    tip('请填写拉黑原因（至少 2 个字）')
+    return
+  }
+
+  banning.value = true
+  try {
+    if (black) {
+      await unbanUser(current.id, remark || '管理端解封')
+      tip('已解封')
+    } else {
+      const result = await banUser(current.id, remark)
+      tip(`已拉黑，清零 ${formatMoney(result.cleared_fen / 100)}`)
+    }
+    await load()
+  } catch (error) {
+    tip(error instanceof ApiError ? error.message : '操作失败')
+  } finally {
+    banning.value = false
+  }
+}
+
 load()
 </script>
 
@@ -405,6 +638,11 @@ load()
     background: $teal-soft;
     color: $teal-ink;
     font-size: $fs-nano;
+
+    &--black {
+      background: $danger-soft;
+      color: $danger-ink;
+    }
   }
 
   &__phone {
@@ -795,6 +1033,55 @@ load()
     font-size: $fs-caption;
     color: $ink-2;
     @include press;
+  }
+}
+
+/* 退款弹层里的可退明细：逐笔列出，让管理员看清楚钱退的是哪几单 */
+.refund {
+  margin-bottom: 20rpx;
+  max-height: 360rpx;
+  overflow-y: auto;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    padding: 14rpx 16rpx;
+    border-radius: $r-sm;
+    background: $fill;
+
+    & + & {
+      margin-top: 10rpx;
+    }
+  }
+
+  &__no {
+    flex: 1;
+    font-size: $fs-caption-sm;
+    color: $ink-2;
+    @include tabular;
+  }
+
+  &__amt {
+    font-size: $fs-caption;
+    font-weight: $fw-medium;
+    color: $ink;
+    @include tabular;
+  }
+
+  &__flag {
+    padding: 0 8rpx;
+    border-radius: $r-xs;
+    background: $off-fill;
+    color: $off-ink;
+    font-size: $fs-nano;
+  }
+
+  &__empty {
+    padding: 20rpx 0;
+    font-size: $fs-caption-sm;
+    color: $ink-4;
+    text-align: center;
   }
 }
 </style>
