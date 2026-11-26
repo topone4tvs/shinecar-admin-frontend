@@ -92,26 +92,39 @@
         </view>
       </view>
 
-      <!-- 整洁奖励申请：有待审核条目时直接在这里审核，不必回审核页翻列表 -->
-      <view v-if="reviewItem" class="block">
+      <!-- 整洁奖励申请：详情接口直接带审核状态，待审核时在这里就地审核 -->
+      <view v-if="review" class="block">
         <view class="block__title">整洁奖励申请</view>
         <view class="line">
           <text class="line__k">奖励金额</text>
-          <text class="line__v line__v--strong">{{ formatMoney(reviewItem.amount) }}</text>
+          <text class="line__v line__v--strong">{{ formatMoney(review.amount) }}</text>
         </view>
         <view class="line">
-          <text class="line__k">提交时间</text>
-          <text class="line__v">{{ reviewItem.submitted_at ? formatDateTime(reviewItem.submitted_at) : '—' }}</text>
+          <text class="line__k">审核状态</text>
+          <text class="line__v">{{ reviewStateText(review.status) }}</text>
         </view>
         <view class="line">
           <text class="line__k">现场照片</text>
-          <text class="line__v">{{ reviewItem.photo_count }} 张</text>
+          <text class="line__v">{{ review.photos.length ? `${review.photos.length} 张` : '用户未上传' }}</text>
         </view>
-        <view class="review-acts">
+        <view v-if="review.photos.length" class="photos">
+          <image
+            v-for="(url, idx) in review.photos"
+            :key="url + idx"
+            class="photos__item"
+            :src="url"
+            mode="aspectFill"
+            @tap="previewPhotos(idx)"
+          />
+        </view>
+        <view v-if="review.remark" class="review-remark">拒绝理由：{{ review.remark }}</view>
+        <view v-if="review.status === 'pending'" class="review-acts">
           <text class="review-btn" @tap="doReview('approve')">审核通过</text>
           <text class="review-btn review-btn--ghost" @tap="doReview('reject')">拒绝</text>
         </view>
-        <text class="review-hint">审核结果会同步到用户端；已审核的记录请到「审核」页查看。</text>
+        <text class="review-hint">
+          {{ review.status === 'pending' ? '审核结果会同步到用户端。' : '已审核的记录可在「审核」页查看。' }}
+        </text>
       </view>
 
       <!-- 停车代缴 -->
@@ -140,8 +153,8 @@
 import { computed, onUnmounted, ref } from 'vue'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { fetchOrder, finishOrder } from '@/api/order'
-import { approveReview, fetchReviews, rejectReview } from '@/api/review'
-import type { OrderDetail, OrderStatus, ReviewItem } from '@/types/api'
+import { approveReview, rejectReview } from '@/api/review'
+import type { OrderDetail, OrderStatus, ReviewStatus } from '@/types/api'
 import { formatDateTime, formatDuration, formatMoney, secondsSince } from '@/utils/format'
 import { ApiError } from '@/utils/error'
 
@@ -151,13 +164,40 @@ const STATE_TEXT: Record<OrderStatus, string> = {
   canceled: '已取消',
 }
 
+const REVIEW_STATE_TEXT: Record<ReviewStatus, string> = {
+  draft: '待提交',
+  pending: '待审核',
+  approved: '已通过',
+  rejected: '已拒绝',
+}
+
 const router = useRouter()
 const order = ref<OrderDetail | null>(null)
 const loading = ref(true)
 const acting = ref(false)
 const now = ref(Date.now())
-const reviewItem = ref<ReviewItem | null>(null)
 let timer: ReturnType<typeof setInterval> | null = null
+
+/** 整洁奖励：详情接口已带审核状态，不再从待审列表里按订单号匹配（积压 >50 会找不到） */
+const review = computed(() => {
+  const current = order.value
+  if (!current || !current.cleanup_review_id) return null
+  return {
+    id: current.cleanup_review_id,
+    status: (current.cleanup_review_status || 'pending') as ReviewStatus,
+    amount: current.cleanup_review_amount || 0,
+    remark: current.cleanup_review_remark || '',
+    photos: current.cleanup_review_photos || [],
+  }
+})
+
+const reviewStateText = (value: ReviewStatus) => REVIEW_STATE_TEXT[value] || '未知'
+
+const previewPhotos = (current: number) => {
+  const urls = review.value?.photos || []
+  if (!urls.length) return
+  Taro.previewImage({ current: urls[current], urls })
+}
 
 const statusText = (value: OrderStatus) => STATE_TEXT[value] || '未知'
 
@@ -180,18 +220,8 @@ const durationText = computed(() => {
 
 const tip = (title: string) => Taro.showToast({ title, icon: 'none', duration: 1800 })
 
-/** 只认待审核条目：已审核的没有「入口」意义，去审核页看历史 */
-const loadReview = async (orderNo: string) => {
-  try {
-    const { list } = await fetchReviews('pending')
-    reviewItem.value = list.find(item => item.order_no === orderNo) || null
-  } catch {
-    reviewItem.value = null
-  }
-}
-
 const doReview = async (action: 'approve' | 'reject') => {
-  const item = reviewItem.value
+  const item = review.value
   if (!item || acting.value) return
 
   let remark = ''
@@ -247,7 +277,6 @@ const load = async () => {
   }
   try {
     order.value = await fetchOrder(id)
-    if (order.value) await loadReview(order.value.order_no)
   } catch (error) {
     if (error instanceof ApiError) {
       // 详情页内联展示，不弹 toast
@@ -501,6 +530,30 @@ useDidShow(() => {
   margin-top: $sp-2;
   font-size: $fs-micro;
   color: $ink-3;
+  line-height: 1.6;
+}
+
+.photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+
+  &__item {
+    width: 150rpx;
+    height: 150rpx;
+    border-radius: $r-sm;
+    background: $fill;
+  }
+}
+
+.review-remark {
+  margin-top: 12rpx;
+  padding: 16rpx 20rpx;
+  border-radius: $r-md;
+  background: $danger-soft;
+  color: $danger-ink;
+  font-size: $fs-caption;
   line-height: 1.6;
 }
 
